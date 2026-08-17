@@ -4,8 +4,10 @@ import com.goide.sdk.GoSdk
 import com.goide.util.GoUtil
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VfsUtil
 import org.jetbrains.tinygoplugin.sdk.TinyGoSdk
 import org.jetbrains.tinygoplugin.sdk.nullSdk
+import java.io.File
 
 interface TinyGoConfiguration : UserConfiguration, ProjectConfiguration {
     fun deepCopy(): TinyGoConfiguration
@@ -59,12 +61,12 @@ internal data class TinyGoConfigurationImpl(
             }
             val localAppData = System.getenv("LOCALAPPDATA") ?: ""
             if (localAppData.isNotEmpty()) {
-                val tinygoDir = java.io.File(localAppData, "tinygo")
+                val tinygoDir = File(localAppData, "tinygo")
                 if (tinygoDir.isDirectory) {
                     val goroots = tinygoDir.listFiles { f -> f.isDirectory && f.name.startsWith("goroot-") }
                     val latestGoroot = goroots?.maxByOrNull { it.lastModified() }
                     if (latestGoroot != null) {
-                        val sdk = GoSdk.fromUrl(com.intellij.openapi.vfs.VfsUtil.pathToUrl(latestGoroot.absolutePath))
+                        val sdk = GoSdk.fromUrl(VfsUtil.pathToUrl(latestGoroot.absolutePath))
                         if (sdk != GoSdk.NULL && sdk.srcDir != null) {
                             projectConfig.cachedGoRootUrl = sdk.homeUrl
                             return sdk

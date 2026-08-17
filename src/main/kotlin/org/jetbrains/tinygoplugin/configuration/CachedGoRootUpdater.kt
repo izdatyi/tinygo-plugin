@@ -1,18 +1,18 @@
 package org.jetbrains.tinygoplugin.configuration
 
 import com.goide.GoLibrariesUtil
-import com.goide.project.GoBuildTargetSettings
 import com.goide.project.GoModuleSettings
 import com.goide.sdk.GoSdk
 import com.goide.sdk.GoSdkService
 import com.goide.util.GoUtil
-import com.intellij.openapi.application.edtWriteAction
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.RootsChangeRescanningInfo
+import com.intellij.ui.EditorNotifications
 import com.intellij.util.application
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.util.messages.MessageBus
@@ -55,8 +55,8 @@ internal fun updateExtLibrariesAndCleanCache(project: Project) {
         project.service<GoSdkService>().incModificationCount()
         GoUtil.cleanResolveCache(project)
         GoLibrariesUtil.updateLibraries(project, RootsChangeRescanningInfo.TOTAL_RESCAN, { }, null)
-        com.intellij.codeInsight.daemon.DaemonCodeAnalyzer.getInstance(project).restart()
-        com.intellij.ui.EditorNotifications.getInstance(project).updateAllNotifications()
+        DaemonCodeAnalyzer.getInstance(project).restart()
+        EditorNotifications.getInstance(project).updateAllNotifications()
     }
 }
 

@@ -16,19 +16,13 @@ import com.goide.sdk.GoSdk
 
 fun isTinyGoActive(project: Project, module: Module? = null): Boolean {
     val config = project.tinyGoConfiguration()
-    if (!config.enabled) return false
     val cached = config.cachedGoRoot
-    if (cached == GoSdk.NULL || cached.srcDir == null) return false
+    if (!config.enabled || cached == GoSdk.NULL || cached.srcDir == null) return false
     val mod = module ?: ModuleManager.getInstance(project).modules.firstOrNull() ?: return true
-    val modSettings = GoModuleSettings.getInstance(mod)
-    val buildSettings = modSettings.buildTargetSettings
-    if (config.goOS.isNotEmpty() && config.goOS != "default" && buildSettings.os != config.goOS) {
-        return false
-    }
-    if (config.goArch.isNotEmpty() && config.goArch != "default" && buildSettings.arch != config.goArch) {
-        return false
-    }
-    return true
+    val buildSettings = GoModuleSettings.getInstance(mod).buildTargetSettings
+    val osMatch = config.goOS.isEmpty() || config.goOS == "default" || buildSettings.os == config.goOS
+    val archMatch = config.goArch.isEmpty() || config.goArch == "default" || buildSettings.arch == config.goArch
+    return osMatch && archMatch
 }
 
 fun propagateGoFlags(project: Project, settings: TinyGoConfiguration) {
