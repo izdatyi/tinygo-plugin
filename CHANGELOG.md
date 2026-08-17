@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.5.22.6]
+
+### Changed
+
+- Make plugin compatible with GoLand 2026.2.
+- Fix project-level settings persistence, target switching, and SDK resolution.
+
 ## [0.5.22]
 
 ### Changed
