@@ -35,7 +35,6 @@ class TinyGoRootLibrary(private val moduleName: String, private val sourceRoots:
 
 class TinyGoLibraryProvider : AdditionalLibraryRootsProvider() {
     override fun getAdditionalProjectLibraries(project: Project): Collection<SyntheticLibrary> {
-        thisLogger().debug("TinyGo SDK additional library (cached GOROOT) requested")
         val tinyGoRoots = getRootsToWatch(project)
         return if (tinyGoRoots.isEmpty()) emptyList() else listOf(
             TinyGoRootLibrary(
@@ -47,14 +46,12 @@ class TinyGoLibraryProvider : AdditionalLibraryRootsProvider() {
     }
 
     override fun getRootsToWatch(project: Project): Collection<VirtualFile> {
-        val settings = project.tinyGoConfiguration()
-        if (!settings.enabled) {
-            thisLogger().debug("cached GOROOT not presented because TinyGo is disabled")
+        if (!isTinyGoActive(project)) {
             return emptyList()
         }
+        val settings = project.tinyGoConfiguration()
         val tinyGoCachedGoRoot = settings.cachedGoRoot
         val tinyGoCachedGoRootSources = tinyGoCachedGoRoot.srcDir ?: return emptyList()
-        thisLogger().debug("cached GOROOT presented at ${project.tinyGoConfiguration().cachedGoRoot}")
         return listOf(tinyGoCachedGoRootSources)
     }
 }

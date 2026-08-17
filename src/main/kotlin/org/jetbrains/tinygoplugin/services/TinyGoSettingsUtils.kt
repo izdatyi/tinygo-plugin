@@ -3,26 +3,64 @@ package org.jetbrains.tinygoplugin.services
 import com.goide.project.GoModuleSettings
 import com.intellij.execution.RunManager
 import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
 import org.jetbrains.tinygoplugin.configuration.GarbageCollector
 import org.jetbrains.tinygoplugin.configuration.Scheduler
 import org.jetbrains.tinygoplugin.configuration.TinyGoConfiguration
+import org.jetbrains.tinygoplugin.configuration.tinyGoConfiguration
 import org.jetbrains.tinygoplugin.runconfig.TinyGoRunConfiguration
 
-fun propagateGoFlags(project: Project, settings: TinyGoConfiguration) {
-    val goSettings = ModuleManager.getInstance(project).modules.firstNotNullOfOrNull {
-        it.getService(GoModuleSettings::class.java)
+import com.goide.sdk.GoSdk
+
+fun isTinyGoActive(project: Project, module: Module? = null): Boolean {
+    val config = project.tinyGoConfiguration()
+    if (!config.enabled) return false
+    val cached = config.cachedGoRoot
+    if (cached == GoSdk.NULL || cached.srcDir == null) return false
+    val mod = module ?: ModuleManager.getInstance(project).modules.firstOrNull() ?: return true
+    val modSettings = GoModuleSettings.getInstance(mod)
+    val buildSettings = modSettings.buildTargetSettings
+    if (config.goOS.isNotEmpty() && config.goOS != "default" && buildSettings.os != config.goOS) {
+        return false
     }
-    if (goSettings == null) {
-        logger<TinyGoSettingsService>().warn("Could not find go module settings")
+    if (config.goArch.isNotEmpty() && config.goArch != "default" && buildSettings.arch != config.goArch) {
+        return false
+    }
+    return true
+}
+
+fun propagateGoFlags(project: Project, settings: TinyGoConfiguration) {
+    val modules = ModuleManager.getInstance(project).modules
+    if (modules.isEmpty()) {
+        logger<TinyGoSettingsService>().warn("Could not find go modules")
         return
     }
-    val buildSettings = goSettings.buildTargetSettings
-    buildSettings.arch = settings.goArch
-    buildSettings.os = settings.goOS
-    buildSettings.customFlags = settings.goTags.split(' ').toTypedArray()
-    goSettings.buildTargetSettings = buildSettings
+    for (module in modules) {
+        val goSettings = GoModuleSettings.getInstance(module)
+        val buildSettings = com.goide.project.GoBuildTargetSettings()
+        buildSettings.arch = settings.goArch
+        buildSettings.os = settings.goOS
+        buildSettings.customFlags = settings.goTags.split(' ').filter { it.isNotBlank() }.toTypedArray()
+        goSettings.buildTargetSettings = buildSettings
+        project.messageBus.syncPublisher(GoModuleSettings.BUILD_TARGET_TOPIC).changed(module, false)
+    }
+    project.save()
+}
+
+fun resetGoFlags(project: Project) {
+    val modules = ModuleManager.getInstance(project).modules
+    for (module in modules) {
+        val goSettings = GoModuleSettings.getInstance(module)
+        val buildSettings = com.goide.project.GoBuildTargetSettings()
+        buildSettings.arch = "default"
+        buildSettings.os = "default"
+        buildSettings.customFlags = emptyArray<String>()
+        goSettings.buildTargetSettings = buildSettings
+        project.messageBus.syncPublisher(GoModuleSettings.BUILD_TARGET_TOPIC).changed(module, false)
+    }
+    project.save()
 }
 
 fun updateTinyGoRunConfigurations(project: Project, settings: TinyGoConfiguration) {

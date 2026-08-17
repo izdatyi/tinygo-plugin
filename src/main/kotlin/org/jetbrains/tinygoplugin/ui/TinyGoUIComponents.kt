@@ -31,6 +31,7 @@ import com.intellij.util.ui.launchOnShow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.intellij.openapi.vfs.VfsUtil
 import org.jetbrains.tinygoplugin.TinyGoBundle
 import org.jetbrains.tinygoplugin.configuration.GarbageCollector
 import org.jetbrains.tinygoplugin.configuration.Scheduler
@@ -39,6 +40,7 @@ import org.jetbrains.tinygoplugin.configuration.serialize
 import org.jetbrains.tinygoplugin.sdk.TinyGoSdk
 import org.jetbrains.tinygoplugin.sdk.TinyGoSdkChooserCombo
 import org.jetbrains.tinygoplugin.sdk.nullSdk
+import org.jetbrains.tinygoplugin.sdk.suggestSdkDirectory
 import org.jetbrains.tinygoplugin.services.TinyGoServiceScope
 import java.awt.event.ItemEvent
 import java.io.File
@@ -67,20 +69,25 @@ fun TinyGoSdkChooserCombo.bind(property: GraphProperty<TinyGoSdk>) {
     val mutex = AtomicBoolean()
     property.afterChange {
         mutex.lockOrSkip {
-            selectSdkByUrl(it.homeUrl)
+            if (it != nullSdk && it.homeUrl.isNotEmpty()) {
+                addSdk(it, true)
+                selectSdkByUrl(it.homeUrl)
+            }
         }
     }
 
     childComponent.addItemListener {
         if (it.stateChange == ItemEvent.SELECTED) {
             mutex.lockOrSkip {
-                property.set(it.item as TinyGoSdk)
+                val selected = it.item as? TinyGoSdk ?: return@lockOrSkip
+                property.set(selected)
             }
         }
     }
 }
 
 fun Row.tinyGoSdkComboChooser(
+    project: Project?,
     projectPathSupplier: () -> String,
     property: GraphProperty<TinyGoSdk>,
     parentDisposable: Disposable,
@@ -89,20 +96,26 @@ fun Row.tinyGoSdkComboChooser(
         .align(Align.FILL)
         .applyToComponent {
             this.launchOnShow("tinyGoSdkComboChooser", Dispatchers.Default) {
-                var sdk: TinyGoSdk = property.get()
-                if (sdk == nullSdk) {
-                    selectFirstNotNullSdk()
-                    sdk = comboBox.model.selectedItem as TinyGoSdk
-                    withContext(Dispatchers.EDT) {
-                        property.set(sdk)
+                val currentSdk: TinyGoSdk = property.get()
+                withContext(Dispatchers.EDT) {
+                    if (currentSdk != nullSdk && currentSdk.homeUrl.isNotEmpty()) {
+                        addSdk(currentSdk, true)
+                        selectSdkByUrl(currentSdk.homeUrl)
+                    } else {
+                        selectSdkByUrl(nullSdk.homeUrl)
                     }
-                } else selectSdkByUrl(sdk.homeUrl)
+                }
             }
             Disposer.register(parentDisposable, this)
         }
         .bind(
             { component: TinyGoSdkChooserCombo -> component.sdk },
-            { component: TinyGoSdkChooserCombo, value: TinyGoSdk -> component.selectSdkByUrl(value.homeUrl) },
+            { component: TinyGoSdkChooserCombo, value: TinyGoSdk ->
+                if (value != nullSdk && value.homeUrl.isNotEmpty()) {
+                    component.addSdk(value, true)
+                    component.selectSdkByUrl(value.homeUrl)
+                }
+            },
             UIPropertyAdapter(property)
         )
         .applyToComponent { bind(property) }
@@ -125,6 +138,7 @@ private fun Panel.tinyGoSettings(
     lateinit var tinyGoSdkComboChooser: Cell<TinyGoSdkChooserCombo>
     row(TinyGoBundle.message(SDK_LABEL)) {
         tinyGoSdkComboChooser = tinyGoSdkComboChooser(
+            project,
             projectPathSupplier,
             wrapper.tinyGoSdkPath,
             parentDisposable

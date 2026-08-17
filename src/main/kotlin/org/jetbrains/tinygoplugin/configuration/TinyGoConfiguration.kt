@@ -1,8 +1,10 @@
 package org.jetbrains.tinygoplugin.configuration
 
+import com.goide.sdk.GoSdk
 import com.goide.util.GoUtil
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import org.jetbrains.tinygoplugin.sdk.TinyGoSdk
 import org.jetbrains.tinygoplugin.sdk.nullSdk
 
 interface TinyGoConfiguration : UserConfiguration, ProjectConfiguration {
@@ -26,7 +28,56 @@ internal data class TinyGoConfigurationImpl(
     constructor(project: Project) : this(
         projectConfig = project.service<ProjectConfigurationImpl>().myState,
         userConfig = project.service<UserConfigurationImpl>().myState,
-    )
+    ) {
+        if (projectConfig.sdkUrl.isEmpty() && userConfig.sdk.homeUrl.isNotEmpty()) {
+            projectConfig.sdkUrl = userConfig.sdk.homeUrl
+            projectConfig.sdkVersion = userConfig.sdk.version
+        }
+        if (projectConfig.cachedGoRootUrl.isEmpty() && userConfig.cachedGoRoot.homeUrl.isNotEmpty()) {
+            projectConfig.cachedGoRootUrl = userConfig.cachedGoRoot.homeUrl
+        }
+    }
+
+    override var sdk: TinyGoSdk
+        get() {
+            val url = projectConfig.sdkUrl.ifEmpty { userConfig.sdk.homeUrl.ifEmpty { null } } ?: return nullSdk
+            val ver = projectConfig.sdkVersion.ifEmpty { userConfig.sdk.version }
+            return TinyGoSdk(url, ver.ifEmpty { null })
+        }
+        set(value) {
+            projectConfig.sdkUrl = value.homeUrl
+            projectConfig.sdkVersion = value.version
+            userConfig.sdk = value
+        }
+
+    override var cachedGoRoot: GoSdk
+        get() {
+            val url = projectConfig.cachedGoRootUrl.ifEmpty { userConfig.cachedGoRoot.homeUrl.ifEmpty { null } }
+            if (url != null) {
+                val sdk = GoSdk.fromUrl(url)
+                if (sdk != GoSdk.NULL && sdk.srcDir != null) return sdk
+            }
+            val localAppData = System.getenv("LOCALAPPDATA") ?: ""
+            if (localAppData.isNotEmpty()) {
+                val tinygoDir = java.io.File(localAppData, "tinygo")
+                if (tinygoDir.isDirectory) {
+                    val goroots = tinygoDir.listFiles { f -> f.isDirectory && f.name.startsWith("goroot-") }
+                    val latestGoroot = goroots?.maxByOrNull { it.lastModified() }
+                    if (latestGoroot != null) {
+                        val sdk = GoSdk.fromUrl(com.intellij.openapi.vfs.VfsUtil.pathToUrl(latestGoroot.absolutePath))
+                        if (sdk != GoSdk.NULL && sdk.srcDir != null) {
+                            projectConfig.cachedGoRootUrl = sdk.homeUrl
+                            return sdk
+                        }
+                    }
+                }
+            }
+            return userConfig.cachedGoRoot
+        }
+        set(value) {
+            projectConfig.cachedGoRootUrl = value.homeUrl
+            userConfig.cachedGoRoot = value
+        }
 
     override fun saveState(project: Project) {
         GoUtil.cleanResolveCache(project)

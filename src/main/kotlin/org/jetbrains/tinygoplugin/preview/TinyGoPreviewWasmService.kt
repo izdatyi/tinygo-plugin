@@ -6,6 +6,7 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import org.jetbrains.tinygoplugin.configuration.tinyGoConfiguration
+import org.jetbrains.tinygoplugin.sdk.createTinyGoEnvironment
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
@@ -32,9 +33,11 @@ internal class TinyGoPreviewWasmService(val project: Project) {
             "-o=${getOutputFile(scratchFile.path)}",
             scratchFile.canonicalPath!!
         )
+        val extraEnv = createTinyGoEnvironment(project, tinyGoConfiguration.sdk.sdkRoot)
         val executor = GoExecutor.`in`(project, null)
             .withExePath(tinyGoConfiguration.sdk.executable?.canonicalPath)
             .withParameters(arguments)
+            .withExtraEnvironment(extraEnv)
 
         executor.executeWithProgress {
             if (it.status.ordinal == 0) {

@@ -16,11 +16,6 @@ import com.intellij.openapi.project.RootsChangeRescanningInfo
 import com.intellij.util.application
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.util.messages.MessageBus
-import kotlinx.coroutines.launch
-import org.jetbrains.tinygoplugin.services.TinyGoInfoExtractor
-import org.jetbrains.tinygoplugin.services.TinyGoServiceScope
-import org.jetbrains.tinygoplugin.services.extractTinyGoInfo
-import org.jetbrains.tinygoplugin.services.propagateGoFlags
 import java.util.EventListener
 
 internal class CachedGoRootUpdater : GoModuleSettings.BuildTargetListener {
@@ -29,29 +24,14 @@ internal class CachedGoRootUpdater : GoModuleSettings.BuildTargetListener {
     }
 
     override fun changed(module: Module, batchUpdate: Boolean) {
-        logger.debug("cached GOROOT update signal caught")
-
         val project = module.project
-        val settings = project.tinyGoConfiguration()
-        if (!settings.enabled) return
-
-        val tinyGoSettings: TinyGoConfiguration = ConfigurationWithHistory(project)
-        TinyGoServiceScope.getScope(project).launch {
-            project.service<TinyGoInfoExtractor>()
-                .extractTinyGoInfo(tinyGoSettings, CachedGoRootInvalidator(project)) { _, output ->
-                    TinyGoServiceScope.getScope(project).launch {
-                        tinyGoSettings.extractTinyGoInfo(output)
-                        edtWriteAction {
-                            tinyGoSettings.saveState(project)
-
-                            propagateGoFlags(project, tinyGoSettings)
-                            updateExtLibrariesAndCleanCache(project)
-                        }
-                    }
+        if (!project.isDisposed) {
+            application.invokeLater {
+                if (!project.isDisposed) {
+                    updateExtLibrariesAndCleanCache(project)
                 }
+            }
         }
-
-        logger.debug("cached GOROOT update signal processed")
     }
 }
 
@@ -69,12 +49,14 @@ class CachedGoRootInvalidator(private val project: Project) : TinyGoExtractionFa
 }
 
 @RequiresEdt
-private fun updateExtLibrariesAndCleanCache(project: Project) {
+internal fun updateExtLibrariesAndCleanCache(project: Project) {
     if (!project.isDisposed) {
         application.assertIsDispatchThread()
         project.service<GoSdkService>().incModificationCount()
         GoUtil.cleanResolveCache(project)
         GoLibrariesUtil.updateLibraries(project, RootsChangeRescanningInfo.TOTAL_RESCAN, { }, null)
+        com.intellij.codeInsight.daemon.DaemonCodeAnalyzer.getInstance(project).restart()
+        com.intellij.ui.EditorNotifications.getInstance(project).updateAllNotifications()
     }
 }
 
@@ -82,8 +64,6 @@ fun sendReloadLibrariesSignal(project: Project) {
     if (!project.isDisposed) {
         val messageBus: MessageBus = project.messageBus
         val modules = ModuleManager.getInstance(project).modules
-        modules.filter {
-            GoBuildTargetSettings.DEFAULT == GoModuleSettings.getInstance(it).buildTargetSettings.goVersion
-        }.forEach { messageBus.syncPublisher(GoModuleSettings.BUILD_TARGET_TOPIC).changed(it, true) }
+        modules.forEach { messageBus.syncPublisher(GoModuleSettings.BUILD_TARGET_TOPIC).changed(it, true) }
     }
 }

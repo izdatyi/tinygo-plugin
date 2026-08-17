@@ -24,11 +24,10 @@ class TinyGoRootsProvider : GoRootsProvider {
         module: Module?,
         file: VirtualFile?,
     ): MutableCollection<VirtualFile>? {
-        val projectSettings = project.tinyGoConfiguration()
-        if (file == null || module == null || !projectSettings.enabled) {
+        if (file == null || module == null || !isTinyGoActive(project, module)) {
             return null
         }
-        val cachedGoRoot = projectSettings.cachedGoRoot
+        val cachedGoRoot = project.tinyGoConfiguration().cachedGoRoot
         val cachedGoRootDir = cachedGoRoot.sdkRoot ?: return null
         if (VfsUtil.isAncestor(cachedGoRootDir, file, false)) {
             return mutableListOf(file.parent)

@@ -25,6 +25,7 @@ import org.jetbrains.tinygoplugin.configuration.TinyGoConfiguration
 import org.jetbrains.tinygoplugin.configuration.TinyGoExtractionFailureListener
 import org.jetbrains.tinygoplugin.configuration.sendReloadLibrariesSignal
 import org.jetbrains.tinygoplugin.sdk.TinyGoDownloadingSdk
+import org.jetbrains.tinygoplugin.sdk.createTinyGoEnvironment
 import org.jetbrains.tinygoplugin.sdk.notifyTinyGoNotConfigured
 import org.jetbrains.tinygoplugin.sdk.osManager
 import java.util.Locale
@@ -90,9 +91,11 @@ class TinyGoExecutable(private val project: Project) {
     ) {
         val processHistory = GoHistoryProcessListener()
         val tinyGoExec = readAction { osManager.executableVFile(sdkRoot) } ?: return
+        val extraEnv = createTinyGoEnvironment(project, sdkRoot)
         val executor = GoExecutor.`in`(project, null)
             .withExePath(tinyGoExec.path)
             .withParameters(arguments)
+            .withExtraEnvironment(extraEnv)
             .showNotifications(true, false)
             .withPtyEnabled(false)
         if (GoOsManager.isWindows()) {

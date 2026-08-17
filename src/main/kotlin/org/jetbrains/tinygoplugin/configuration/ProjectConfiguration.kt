@@ -19,6 +19,9 @@ interface ProjectConfiguration {
     var goArch: String
     var goOS: String
     var userTargets: List<String>
+    var sdkUrl: String
+    var sdkVersion: String
+    var cachedGoRootUrl: String
 }
 
 data class ProjectConfigurationState(
@@ -29,6 +32,9 @@ data class ProjectConfigurationState(
     override var goArch: String = "",
     override var goOS: String = "",
     override var userTargets: List<String> = emptyList(),
+    override var sdkUrl: String = "",
+    override var sdkVersion: String = "",
+    override var cachedGoRootUrl: String = "",
 ) : ProjectConfiguration
 
 @State(name = "TinyGoPlugin", storages = [Storage("tinygoSettings.xml")])
@@ -50,13 +56,17 @@ internal class ProjectConfigurationImpl(val project: Project) :
         XmlSerializerUtil.copyBean(state, myState)
         myState.targetPlatform = context.expandPath(myState.targetPlatform)
         myState.userTargets = myState.userTargets.filter { it.isNotBlank() }.map(context::collapsePath)
+        myState.sdkUrl = context.expandPath(myState.sdkUrl)
+        myState.cachedGoRootUrl = context.expandPath(myState.cachedGoRootUrl)
     }
 
     override fun getState(): ProjectConfigurationState {
         // collapse paths
         return myState.copy(
             targetPlatform = context.collapsePath(myState.targetPlatform),
-            userTargets = myState.userTargets.map(context::collapsePath)
+            userTargets = myState.userTargets.map(context::collapsePath),
+            sdkUrl = context.collapsePath(myState.sdkUrl),
+            cachedGoRootUrl = context.collapsePath(myState.cachedGoRootUrl)
         )
     }
 }

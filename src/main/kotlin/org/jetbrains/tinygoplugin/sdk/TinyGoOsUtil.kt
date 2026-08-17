@@ -21,14 +21,20 @@ internal abstract class OSUtilsImpl : OSUtils {
 }
 
 internal class WindowsUtils : OSUtilsImpl() {
-    override fun suggestedDirectories(): Collection<String> =
-        listOf(
+    override fun suggestedDirectories(): Collection<String> {
+        val userHome = System.getProperty("user.home") ?: ""
+        return listOfNotNull(
+            System.getenv("TINYGOROOT"),
+            "${System.getenv("SCOOP")}\\apps\\tinygo\\current",
             "${System.getenv("SCOOP")}\\tinygo",
+            "${System.getenv("SCOOP_GLOBAL")}\\apps\\tinygo\\current",
             "${System.getenv("SCOOP_GLOBAL")}\\tinygo",
+            if (userHome.isNotEmpty()) "$userHome\\scoop\\apps\\tinygo\\current" else null,
             "C:\\tinygo",
             "C:\\Program Files\\tinygo",
             "C:\\Program Files (x86)\\tinygo"
         )
+    }
 
     override fun executableName(): String {
         return "tinygo.exe"
@@ -42,18 +48,24 @@ internal abstract class UnixUtils : OSUtilsImpl() {
 
 internal class UnknownOSUtils : UnixUtils() {
     override fun suggestedDirectories(): Collection<String> =
-        emptyList()
+        listOfNotNull(System.getenv("TINYGOROOT"))
 }
 
 internal class MacOSUtils : UnixUtils() {
     override fun suggestedDirectories(): Collection<String> {
         val macPorts = "/opt/local/lib/tinygo"
         val homeBrew = "/usr/local/Cellar/tinygo"
-        val file = FileUtil.findFirstThatExist(macPorts, homeBrew)
+        val homeBrewArm = "/opt/homebrew/Cellar/tinygo"
+        val list = mutableListOf<String>()
+        System.getenv("TINYGOROOT")?.let { list.add(it) }
+        val file = FileUtil.findFirstThatExist(macPorts, homeBrew, homeBrewArm)
         val tinyGoSdkDirectories = file?.canonicalFile?.listFiles { child ->
             checkDirectoryForTinyGo(child)
         }
-        return if (tinyGoSdkDirectories.isNullOrEmpty()) emptyList() else tinyGoSdkDirectories.map { f -> f.path }
+        if (!tinyGoSdkDirectories.isNullOrEmpty()) {
+            list.addAll(tinyGoSdkDirectories.map { f -> f.path })
+        }
+        return list
     }
 
     override fun emulatedArch(arch: String): String =
@@ -61,7 +73,12 @@ internal class MacOSUtils : UnixUtils() {
 }
 
 internal class LinuxUtils : UnixUtils() {
-    override fun suggestedDirectories(): Collection<String> = listOf("/usr/local/tinygo")
+    override fun suggestedDirectories(): Collection<String> {
+        val list = mutableListOf<String>()
+        System.getenv("TINYGOROOT")?.let { list.add(it) }
+        list.add("/usr/local/tinygo")
+        return list
+    }
 }
 
 val osManager: OSUtils
