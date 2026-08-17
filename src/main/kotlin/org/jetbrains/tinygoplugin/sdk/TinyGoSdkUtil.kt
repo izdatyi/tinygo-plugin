@@ -74,48 +74,31 @@ fun createTinyGoEnvironment(
     val env = mutableMapOf<String, String>()
     env.putAll(customEnv)
 
-    // 1. Configure Go SDK (GOROOT) from project's Go SDK
-    val goSdk = GoSdkService.getInstance(project).getSdk(null)
     var goBinDir: String? = null
-    if (goSdk.isValid) {
-        val goHome = goSdk.homePath
-        if (!goHome.isNullOrBlank()) {
-            val goHomeFile = File(goHome)
-            val goHomeCanonical = try { goHomeFile.canonicalPath } catch (_: Exception) { goHomeFile.absolutePath }
-            env["GOROOT"] = goHomeCanonical
-            val bin = File(goHomeFile, "bin")
-            if (bin.exists()) {
-                goBinDir = try { bin.canonicalPath } catch (_: Exception) { bin.absolutePath }
-            }
+    val goSdk = GoSdkService.getInstance(project).getSdk(null)
+    val goHome = if (goSdk.isValid) goSdk.homeUrl.let { com.intellij.openapi.vfs.VfsUtil.urlToPath(it) } else ""
+    if (goHome.isNotEmpty()) {
+        val goHomeFile = File(goHome)
+        env["GOROOT"] = goHomeFile.absolutePath
+        val bin = File(goHomeFile, "bin")
+        if (bin.exists()) {
+            goBinDir = bin.absolutePath
         }
     }
 
-    // 2. Configure TinyGo SDK (TINYGOROOT)
     var tinyGoBinDir: String? = null
     if (sdkRoot != null && sdkRoot.isValid) {
-        val tinyGoHomePath = sdkRoot.canonicalPath ?: sdkRoot.path
-        val tinyGoHomeFile = File(tinyGoHomePath)
-        val tinyGoHomeCanonical = try { tinyGoHomeFile.canonicalPath } catch (_: Exception) { tinyGoHomeFile.absolutePath }
-        env["TINYGOROOT"] = tinyGoHomeCanonical
+        val tinyGoHome = sdkRoot.canonicalPath ?: sdkRoot.path
+        val tinyGoHomeFile = File(tinyGoHome)
+        env["TINYGOROOT"] = tinyGoHomeFile.absolutePath
         val bin = File(tinyGoHomeFile, "bin")
         if (bin.exists()) {
-            tinyGoBinDir = try { bin.canonicalPath } catch (_: Exception) { bin.absolutePath }
+            tinyGoBinDir = bin.absolutePath
         }
     }
 
-    // 3. Prepend tinyGoBinDir and goBinDir to PATH
     val currentPath = System.getenv("PATH") ?: System.getenv("Path") ?: ""
-    val pathParts = mutableListOf<String>()
-    if (!tinyGoBinDir.isNullOrBlank()) {
-        pathParts.add(tinyGoBinDir)
-    }
-    if (!goBinDir.isNullOrBlank()) {
-        pathParts.add(goBinDir)
-    }
-    if (currentPath.isNotEmpty()) {
-        pathParts.add(currentPath)
-    }
-
+    val pathParts = listOfNotNull(tinyGoBinDir, goBinDir, currentPath.ifEmpty { null })
     val newPath = pathParts.joinToString(File.pathSeparator)
     env["PATH"] = newPath
     env["Path"] = newPath

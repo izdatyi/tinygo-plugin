@@ -31,7 +31,6 @@ import com.intellij.util.ui.launchOnShow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.intellij.openapi.vfs.VfsUtil
 import org.jetbrains.tinygoplugin.TinyGoBundle
 import org.jetbrains.tinygoplugin.configuration.GarbageCollector
 import org.jetbrains.tinygoplugin.configuration.Scheduler
@@ -40,7 +39,6 @@ import org.jetbrains.tinygoplugin.configuration.serialize
 import org.jetbrains.tinygoplugin.sdk.TinyGoSdk
 import org.jetbrains.tinygoplugin.sdk.TinyGoSdkChooserCombo
 import org.jetbrains.tinygoplugin.sdk.nullSdk
-import org.jetbrains.tinygoplugin.sdk.suggestSdkDirectory
 import org.jetbrains.tinygoplugin.services.TinyGoServiceScope
 import java.awt.event.ItemEvent
 import java.io.File

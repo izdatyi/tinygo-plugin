@@ -59,20 +59,10 @@ internal data class TinyGoConfigurationImpl(
                 val sdk = GoSdk.fromUrl(url)
                 if (sdk != GoSdk.NULL && sdk.srcDir != null) return sdk
             }
-            val localAppData = System.getenv("LOCALAPPDATA") ?: ""
-            if (localAppData.isNotEmpty()) {
-                val tinygoDir = File(localAppData, "tinygo")
-                if (tinygoDir.isDirectory) {
-                    val goroots = tinygoDir.listFiles { f -> f.isDirectory && f.name.startsWith("goroot-") }
-                    val latestGoroot = goroots?.maxByOrNull { it.lastModified() }
-                    if (latestGoroot != null) {
-                        val sdk = GoSdk.fromUrl(VfsUtil.pathToUrl(latestGoroot.absolutePath))
-                        if (sdk != GoSdk.NULL && sdk.srcDir != null) {
-                            projectConfig.cachedGoRootUrl = sdk.homeUrl
-                            return sdk
-                        }
-                    }
-                }
+            val fallback = findFallbackCachedGoRoot()
+            if (fallback != null) {
+                projectConfig.cachedGoRootUrl = fallback.homeUrl
+                return fallback
             }
             return userConfig.cachedGoRoot
         }
@@ -80,6 +70,16 @@ internal data class TinyGoConfigurationImpl(
             projectConfig.cachedGoRootUrl = value.homeUrl
             userConfig.cachedGoRoot = value
         }
+
+    private fun findFallbackCachedGoRoot(): GoSdk? {
+        val localAppData = System.getenv("LOCALAPPDATA") ?: return null
+        val tinygoDir = File(localAppData, "tinygo")
+        if (!tinygoDir.isDirectory) return null
+        val latestGoroot = tinygoDir.listFiles { f -> f.isDirectory && f.name.startsWith("goroot-") }
+            ?.maxByOrNull { it.lastModified() } ?: return null
+        val sdk = GoSdk.fromUrl(VfsUtil.pathToUrl(latestGoroot.absolutePath))
+        return if (sdk != GoSdk.NULL && sdk.srcDir != null) sdk else null
+    }
 
     override fun saveState(project: Project) {
         GoUtil.cleanResolveCache(project)
