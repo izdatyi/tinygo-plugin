@@ -60,7 +60,11 @@ fun findTinyGoInPath(): File? {
 
 fun suggestSdkDirectory(): File? {
     val tinyGoPath = findTinyGoInPath()
-    if (tinyGoPath != null && checkBin(tinyGoPath) && checkTargets(tinyGoPath) && checkMachinesSources(File(tinyGoPath, "src"))) {
+    val isValid = tinyGoPath != null &&
+        checkBin(tinyGoPath) &&
+        checkTargets(tinyGoPath) &&
+        checkMachinesSources(File(tinyGoPath, "src"))
+    if (isValid) {
         return tinyGoPath
     }
     return suggestSdkDirectories().firstOrNull()

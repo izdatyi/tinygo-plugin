@@ -72,12 +72,16 @@ internal data class TinyGoConfigurationImpl(
         }
 
     private fun findFallbackCachedGoRoot(): GoSdk? {
-        val localAppData = System.getenv("LOCALAPPDATA") ?: return null
-        val tinygoDir = File(localAppData, "tinygo")
-        if (!tinygoDir.isDirectory) return null
-        val latestGoroot = tinygoDir.listFiles { f -> f.isDirectory && f.name.startsWith("goroot-") }
-            ?.maxByOrNull { it.lastModified() } ?: return null
-        val sdk = GoSdk.fromUrl(VfsUtil.pathToUrl(latestGoroot.absolutePath))
+        val localAppData = System.getenv("LOCALAPPDATA") ?: ""
+        val tinygoDir = if (localAppData.isNotEmpty()) File(localAppData, "tinygo") else null
+        val latestGoroot = if (tinygoDir != null && tinygoDir.isDirectory) {
+            tinygoDir.listFiles { f -> f.isDirectory && f.name.startsWith("goroot-") }
+                ?.maxByOrNull { it.lastModified() }
+        } else {
+            null
+        }
+        val gorootPath = latestGoroot?.absolutePath ?: return null
+        val sdk = GoSdk.fromUrl(VfsUtil.pathToUrl(gorootPath))
         return if (sdk != GoSdk.NULL && sdk.srcDir != null) sdk else null
     }
 

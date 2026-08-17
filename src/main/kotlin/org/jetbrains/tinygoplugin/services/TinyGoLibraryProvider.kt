@@ -2,7 +2,6 @@ package org.jetbrains.tinygoplugin.services
 
 import com.goide.project.GoSyntheticLibrary
 import com.intellij.navigation.ItemPresentation
-import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.AdditionalLibraryRootsProvider
 import com.intellij.openapi.roots.SyntheticLibrary

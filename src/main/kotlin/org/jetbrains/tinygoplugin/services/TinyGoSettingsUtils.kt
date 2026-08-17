@@ -1,6 +1,7 @@
 package org.jetbrains.tinygoplugin.services
 
 import com.goide.project.GoModuleSettings
+import com.goide.sdk.GoSdk
 import com.intellij.execution.RunManager
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.module.Module
@@ -11,8 +12,6 @@ import org.jetbrains.tinygoplugin.configuration.Scheduler
 import org.jetbrains.tinygoplugin.configuration.TinyGoConfiguration
 import org.jetbrains.tinygoplugin.configuration.tinyGoConfiguration
 import org.jetbrains.tinygoplugin.runconfig.TinyGoRunConfiguration
-
-import com.goide.sdk.GoSdk
 
 fun isTinyGoActive(project: Project, module: Module? = null): Boolean {
     val config = project.tinyGoConfiguration()

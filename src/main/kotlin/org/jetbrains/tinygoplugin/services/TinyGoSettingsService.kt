@@ -143,8 +143,11 @@ class TinyGoSettingsService(private val project: Project) :
         }
         tinyGoSettings.saveState(project)
         updateExtLibrariesAndCleanCache(project)
-        val sdkOrTargetChanged = oldSdk != tinyGoSettings.sdk || oldTarget != tinyGoSettings.targetPlatform
-        val flagsChanged = oldGoOS != tinyGoSettings.goOS || oldGoArch != tinyGoSettings.goArch || oldGoTags != tinyGoSettings.goTags
+        val sdkOrTargetChanged = oldSdk != tinyGoSettings.sdk ||
+            oldTarget != tinyGoSettings.targetPlatform
+        val flagsChanged = oldGoOS != tinyGoSettings.goOS ||
+            oldGoArch != tinyGoSettings.goArch ||
+            oldGoTags != tinyGoSettings.goTags
         if (sdkOrTargetChanged || flagsChanged) {
             sendReloadLibrariesSignal(project)
         }

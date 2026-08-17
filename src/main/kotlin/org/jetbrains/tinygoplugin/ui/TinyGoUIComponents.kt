@@ -84,6 +84,7 @@ fun TinyGoSdkChooserCombo.bind(property: GraphProperty<TinyGoSdk>) {
     }
 }
 
+@Suppress("UnusedParameter")
 fun Row.tinyGoSdkComboChooser(
     project: Project?,
     projectPathSupplier: () -> String,
