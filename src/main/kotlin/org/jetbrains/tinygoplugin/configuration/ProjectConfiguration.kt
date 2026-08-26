@@ -20,6 +20,9 @@ interface ProjectConfiguration {
     var goArch: String
     var goOS: String
     var userTargets: List<String>
+    var sdkUrl: String
+    var sdkVersion: String
+    var cachedGoRootUrl: String
 }
 
 data class ProjectConfigurationState(
@@ -30,6 +33,9 @@ data class ProjectConfigurationState(
     override var goArch: String = "",
     override var goOS: String = "",
     override var userTargets: List<String> = emptyList(),
+    override var sdkUrl: String = "",
+    override var sdkVersion: String = "",
+    override var cachedGoRootUrl: String = "",
 ) : ProjectConfiguration
 
 @State(name = "TinyGoPlugin", storages = [Storage("tinygoSettings.xml")])

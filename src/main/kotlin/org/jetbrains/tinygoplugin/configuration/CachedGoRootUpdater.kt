@@ -5,7 +5,7 @@ import com.goide.project.GoModuleSettings
 import com.goide.sdk.GoSdk
 import com.goide.sdk.GoSdkService
 import com.goide.util.GoUtil
-import com.intellij.openapi.application.edtWriteAction
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.module.Module
@@ -14,15 +14,13 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.RootsChangeRescanningInfo
 import com.intellij.openapi.roots.ModuleRootEvent
 import com.intellij.openapi.roots.ModuleRootListener
+import com.intellij.ui.EditorNotifications
 import com.intellij.util.application
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.util.messages.MessageBus
 import kotlinx.coroutines.launch
-import org.jetbrains.tinygoplugin.services.TinyGoInfoExtractor
 import org.jetbrains.tinygoplugin.services.TinyGoLibraryLayoutService
 import org.jetbrains.tinygoplugin.services.TinyGoServiceScope
-import org.jetbrains.tinygoplugin.services.extractTinyGoInfo
-import org.jetbrains.tinygoplugin.services.propagateGoFlags
 import java.util.EventListener
 import java.util.concurrent.atomic.AtomicReference
 
@@ -49,28 +47,14 @@ internal class CachedGoRootUpdater : GoModuleSettings.BuildTargetListener {
     }
 
     override fun changed(module: Module, batchUpdate: Boolean) {
-        logger.debug("cached GOROOT update signal caught")
-
         val project = module.project
-        val settings = project.tinyGoConfiguration()
-        if (!settings.enabled) return
-
-        val tinyGoSettings: TinyGoConfiguration = ConfigurationWithHistory(project)
-        TinyGoServiceScope.getScope(project).launch {
-            val output = project.service<TinyGoInfoExtractor>()
-                .extractTinyGoInfo(tinyGoSettings, CachedGoRootInvalidator(project))
-                ?: return@launch
-            tinyGoSettings.extractTinyGoInfo(output)
-            project.service<TinyGoLibraryLayoutService>().refresh(tinyGoSettings)
-            edtWriteAction {
-                tinyGoSettings.saveState(project)
-
-                propagateGoFlags(project, tinyGoSettings)
-                updateExtLibrariesAndCleanCache(project)
+        if (!project.isDisposed) {
+            application.invokeLater {
+                if (!project.isDisposed) {
+                    updateExtLibrariesAndCleanCache(project)
+                }
             }
         }
-
-        logger.debug("cached GOROOT update signal processed")
     }
 }
 
@@ -95,6 +79,8 @@ internal fun updateExtLibrariesAndCleanCache(project: Project) {
         project.service<GoSdkService>().incModificationCount()
         GoUtil.cleanResolveCache(project)
         GoLibrariesUtil.updateLibraries(project, RootsChangeRescanningInfo.TOTAL_RESCAN, { }, null)
+        DaemonCodeAnalyzer.getInstance(project).restart()
+        EditorNotifications.getInstance(project).updateAllNotifications()
     }
 }
 

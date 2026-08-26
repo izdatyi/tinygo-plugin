@@ -2,3 +2,5 @@
 .idea
 .intellijPlatform
 build
+src/test/testData/configuration/target*.json
+

@@ -39,6 +39,7 @@ class UnsupportedPackageProvider(private val project: Project) {
 
 class TinyGoImportsFilter : GoImportsFilter {
     override fun isExcluded(project: Project, import: String): Boolean {
+        if (!isTinyGoActive(project)) return false
         val unsupportedPackages = project.service<UnsupportedPackageProvider>()
         return unsupportedPackages.unsupportedLibraries().contains(import)
     }

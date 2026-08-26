@@ -26,6 +26,7 @@ import org.jetbrains.tinygoplugin.configuration.TinyGoConfiguration
 import org.jetbrains.tinygoplugin.configuration.tinyGoConfiguration
 import org.jetbrains.tinygoplugin.heapAllocations.supplyHeapAllocsFromOutput
 import org.jetbrains.tinygoplugin.heapAllocations.toolWindow.TinyGoHeapAllocsViewManager
+import org.jetbrains.tinygoplugin.sdk.createTinyGoEnvironment
 import org.jetbrains.tinygoplugin.sdk.notifyTinyGoNotConfigured
 import org.jetbrains.tinygoplugin.services.TinyGoServiceScope
 import java.nio.file.Files
@@ -51,12 +52,17 @@ open class TinyGoRunningState(env: ExecutionEnvironment, module: Module, configu
             throw ExecutionException("TinyGo SDK is not set. Please configure TinyGo SDK")
         }
 
+        val extraEnv = createTinyGoEnvironment(
+            configuration.project,
+            configuration.project.tinyGoConfiguration().sdk.sdkRoot,
+            configuration.customEnvironment
+        )
         return GoExecutor.`in`(configuration.project, null)
             .withExePath(tinyGoExecutablePath.path)
             .withParameters(arguments)
             .withWorkDirectory(configuration.workingDirectory)
             .withPassParentEnvironment(configuration.isPassParentEnvironment)
-            .withExtraEnvironment(configuration.customEnvironment)
+            .withExtraEnvironment(extraEnv)
     }
 }
 

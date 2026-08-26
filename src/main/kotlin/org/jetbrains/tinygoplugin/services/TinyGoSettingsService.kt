@@ -1,6 +1,7 @@
 package org.jetbrains.tinygoplugin.services
 
 import com.goide.project.GoModuleSettings
+import com.goide.sdk.GoSdk
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.asContextElement
@@ -20,6 +21,7 @@ import org.jetbrains.tinygoplugin.configuration.Scheduler
 import org.jetbrains.tinygoplugin.configuration.TinyGoConfiguration
 import org.jetbrains.tinygoplugin.configuration.sendReloadLibrariesSignal
 import org.jetbrains.tinygoplugin.configuration.tinyGoConfiguration
+import org.jetbrains.tinygoplugin.configuration.updateExtLibrariesAndCleanCache
 import org.jetbrains.tinygoplugin.sdk.TinyGoDownloadingSdk
 import org.jetbrains.tinygoplugin.sdk.TinyGoSdk
 import org.jetbrains.tinygoplugin.ui.ConfigurationProvider
@@ -35,18 +37,6 @@ class TinyGoConfigurationWithTagUpdate(
 
     constructor(project: Project, callback: () -> Unit) :
         this(ConfigurationWithHistory(project, maintainPredefinedTargets = true), project, callback)
-
-    init {
-        val moduleSettings = goSettings(project)
-        if (moduleSettings == null) {
-            thisLogger().warn("Could not find go module settings")
-        } else {
-            val buildSettings = moduleSettings.buildTargetSettings
-            settings.goArch = buildSettings.arch
-            settings.goOS = buildSettings.os
-            settings.goTags = buildSettings.customFlags.joinToString(" ")
-        }
-    }
 
     override var sdk: TinyGoSdk
         get() = settings.sdk
@@ -64,13 +54,11 @@ class TinyGoConfigurationWithTagUpdate(
     override var targetPlatform: String
         get() = settings.targetPlatform
         set(value) {
-            if (settings.targetPlatform != value) {
-                settings.targetPlatform = value
-                if (value.isNotEmpty()) {
-                    settings.gc = GarbageCollector.AUTO_DETECT
-                    settings.scheduler = Scheduler.AUTO_DETECT
-                    callback()
-                }
+            settings.targetPlatform = value
+            if (value.isNotEmpty()) {
+                settings.gc = GarbageCollector.AUTO_DETECT
+                settings.scheduler = Scheduler.AUTO_DETECT
+                callback()
             }
         }
 
@@ -103,12 +91,15 @@ class TinyGoConfigurationWithTagUpdate(
 
     override fun modified(project: Project): Boolean {
         val moduleSettings = goSettings(project)
-        if (moduleSettings != null) {
+        if (moduleSettings != null && settings.enabled) {
             val buildSettings = moduleSettings.buildTargetSettings
-            if (settings.goArch != buildSettings.arch ||
-                settings.goOS != buildSettings.os ||
-                settings.goTags != buildSettings.customFlags.joinToString(" ")
-            ) {
+            val osMatch = settings.goOS.isNotEmpty() && settings.goOS != "default" &&
+                buildSettings.os == settings.goOS
+            val archMatch = settings.goArch.isNotEmpty() && settings.goArch != "default" &&
+                buildSettings.arch == settings.goArch
+            val tagsMatch = settings.goTags.isNotEmpty() &&
+                buildSettings.customFlags.joinToString(" ") == settings.goTags
+            if (!osMatch || !archMatch || !tagsMatch) {
                 return true
             }
         }
@@ -127,19 +118,48 @@ class TinyGoSettingsService(private val project: Project) :
     override fun isModified(): Boolean = tinyGoSettings.modified(project)
 
     override fun apply() {
+        super.apply()
         thisLogger().warn("Apply called")
         val oldConfiguration = project.tinyGoConfiguration()
         val oldSdk = oldConfiguration.sdk
         val oldTarget = oldConfiguration.targetPlatform
+        val oldGoOS = oldConfiguration.goOS
+        val oldGoArch = oldConfiguration.goArch
+        val oldGoTags = oldConfiguration.goTags
+
+        if (!tinyGoSettings.enabled) {
+            tinyGoSettings.targetPlatform = ""
+            tinyGoSettings.goOS = ""
+            tinyGoSettings.goArch = ""
+            tinyGoSettings.goTags = ""
+            tinyGoSettings.cachedGoRoot = GoSdk.NULL
+            resetGoFlags(project)
+        } else {
+            propagateGoFlags()
+            updateTinyGoRunConfigurations()
+        }
         tinyGoSettings.saveState(project)
-        propagateGoFlags()
-        updateTinyGoRunConfigurations()
-        if (oldSdk != tinyGoSettings.sdk || oldTarget != tinyGoSettings.targetPlatform) {
+        updateExtLibrariesAndCleanCache(project)
+        val sdkOrTargetChanged = oldSdk != tinyGoSettings.sdk ||
+            oldTarget != tinyGoSettings.targetPlatform
+        val flagsChanged = oldGoOS != tinyGoSettings.goOS ||
+            oldGoArch != tinyGoSettings.goArch ||
+            oldGoTags != tinyGoSettings.goTags
+        if (sdkOrTargetChanged || flagsChanged) {
             sendReloadLibrariesSignal(project)
         }
     }
 
-    override fun createPanel(): DialogPanel = generateSettingsPanel(project, propertiesWrapper, disposable!!)
+    override fun createPanel(): DialogPanel {
+        if (tinyGoSettings.enabled && tinyGoSettings.targetPlatform.isNotEmpty()) {
+            val osInvalid = tinyGoSettings.goOS.isEmpty() || tinyGoSettings.goOS == "default"
+            val archInvalid = tinyGoSettings.goArch.isEmpty() || tinyGoSettings.goArch == "default"
+            if (osInvalid || archInvalid) {
+                callExtractor()
+            }
+        }
+        return generateSettingsPanel(project, propertiesWrapper, disposable!!)
+    }
 
     private fun callExtractor() {
         val extractionSettings = tinyGoSettings as TinyGoConfigurationWithTagUpdate

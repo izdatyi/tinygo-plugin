@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [0.6.0.1]
+
+### Added
+
+- Store SDK and cached GOROOT configurations in `.idea/tinygoSettings.xml` for project persistence.
+- Automatic environment injection (`GOROOT`, `TINYGOROOT`, `PATH`) for TinyGo run configurations and builds.
+- Fallback cached GOROOT detection in LocalAppData.
+- Target switching with automatic `project.save()`.
+
 ## [0.6.0]
 
 ### Changed

@@ -145,6 +145,7 @@ detekt {
 changelog {
     groups.empty()
     repositoryUrl = properties("pluginRepositoryUrl")
+    headerParserRegex.set("""(\d+(\.\d+)+)""".toRegex())
 }
 
 tasks {

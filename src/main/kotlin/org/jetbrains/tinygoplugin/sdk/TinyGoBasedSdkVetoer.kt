@@ -9,8 +9,7 @@ import org.jetbrains.tinygoplugin.configuration.tinyGoConfiguration
 
 class TinyGoBasedSdkVetoer : GoBasedSdkVetoer {
     override fun isSdkVetoed(sdk: GoBasedSdk, module: Module): Boolean =
-        module.project.tinyGoConfiguration().enabled &&
-            module.project.service<GoSdkService>().getSdk(module) == sdk
+        false
 
     override fun getReplacement(sdk: GoBasedSdk, module: Module): GoBasedSdk =
         module.project.tinyGoConfiguration().cachedGoRoot

@@ -31,6 +31,7 @@ import org.jetbrains.tinygoplugin.configuration.Scheduler
 import org.jetbrains.tinygoplugin.configuration.TinyGoConfiguration
 import org.jetbrains.tinygoplugin.configuration.TinyGoExtractionFailureListener
 import org.jetbrains.tinygoplugin.sdk.TinyGoDownloadingSdk
+import org.jetbrains.tinygoplugin.sdk.createTinyGoEnvironment
 import org.jetbrains.tinygoplugin.sdk.notifyTinyGoNotConfigured
 import org.jetbrains.tinygoplugin.sdk.osManager
 import java.io.File
@@ -103,29 +104,16 @@ class TinyGoExecutable(private val project: Project) {
         arguments: List<String>,
         showErrors: Boolean,
     ): GoExecutor? {
-        val (tinyGoExec, goBinPath) = readAction {
-            val executable = osManager.executableVFile(sdkRoot)
-            val goSdkRoot = project.service<GoSdkService>().getSdk(null).sdkRoot
-            executable to goSdkRoot?.findChild("bin")?.path
-        }
-        if (tinyGoExec == null) return null
+        val tinyGoExec = readAction {
+            osManager.executableVFile(sdkRoot)
+        } ?: return null
 
-        val pathVariable = if (GoOsManager.isWindows()) "Path" else "PATH"
-        val parentPath = EnvironmentUtil.getValue(pathVariable)
-            ?: EnvironmentUtil.getValue("PATH")
-            ?: ""
-        val path = listOfNotNull(goBinPath, parentPath.takeIf(String::isNotEmpty))
-            .joinToString(File.pathSeparator)
+        val extraEnv = createTinyGoEnvironment(project, sdkRoot, mapOf("GOTOOLCHAIN" to "local"))
 
         return GoExecutor.`in`(project, null)
             .withExePath(tinyGoExec.path)
             .withParameters(arguments)
-            .withExtraEnvironment(
-                mapOf(
-                    pathVariable to path,
-                    "GOTOOLCHAIN" to "local",
-                )
-            )
+            .withExtraEnvironment(extraEnv)
             .showNotifications(showErrors, false)
             .withPtyEnabled(false)
             .also {

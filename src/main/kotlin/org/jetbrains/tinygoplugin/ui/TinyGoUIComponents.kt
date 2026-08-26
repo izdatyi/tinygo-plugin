@@ -67,19 +67,24 @@ fun TinyGoSdkChooserCombo.bind(property: GraphProperty<TinyGoSdk>) {
     val mutex = AtomicBoolean()
     property.afterChange {
         mutex.lockOrSkip {
-            selectSdkByUrl(it.homeUrl)
+            if (it != nullSdk && it.homeUrl.isNotEmpty()) {
+                addSdk(it, true)
+                selectSdkByUrl(it.homeUrl)
+            }
         }
     }
 
-    childComponent.addItemListener {
-        if (it.stateChange == ItemEvent.SELECTED) {
-            mutex.lockOrSkip {
-                property.set(it.item as TinyGoSdk)
+    addChangedListener {
+        mutex.lockOrSkip {
+            val selected = this.sdk
+            if (selected != nullSdk) {
+                property.set(selected)
             }
         }
     }
 }
 
+@Suppress("UnusedParameter")
 fun Row.tinyGoSdkComboChooser(
     project: Project?,
     projectPathSupplier: () -> String,
@@ -91,20 +96,26 @@ fun Row.tinyGoSdkComboChooser(
         .align(Align.FILL)
         .applyToComponent {
             this.launchOnShow("tinyGoSdkComboChooser", Dispatchers.Default) {
-                var sdk: TinyGoSdk = property.get()
-                if (sdk == nullSdk) {
-                    selectFirstNotNullSdk()
-                    sdk = comboBox.model.selectedItem as TinyGoSdk
-                    withContext(Dispatchers.EDT) {
-                        property.set(sdk)
+                val currentSdk: TinyGoSdk = property.get()
+                withContext(Dispatchers.EDT) {
+                    if (currentSdk != nullSdk && currentSdk.homeUrl.isNotEmpty()) {
+                        addSdk(currentSdk, true)
+                        selectSdkByUrl(currentSdk.homeUrl)
+                    } else {
+                        selectSdkByUrl(nullSdk.homeUrl)
                     }
-                } else selectSdkByUrl(sdk.homeUrl)
+                }
             }
             Disposer.register(parentDisposable, this)
         }
         .bind(
             { component: TinyGoSdkChooserCombo -> component.sdk },
-            { component: TinyGoSdkChooserCombo, value: TinyGoSdk -> component.selectSdkByUrl(value.homeUrl) },
+            { component: TinyGoSdkChooserCombo, value: TinyGoSdk ->
+                if (value != nullSdk && value.homeUrl.isNotEmpty()) {
+                    component.addSdk(value, true)
+                    component.selectSdkByUrl(value.homeUrl)
+                }
+            },
             UIPropertyAdapter(property)
         )
         .applyToComponent { bind(property) }

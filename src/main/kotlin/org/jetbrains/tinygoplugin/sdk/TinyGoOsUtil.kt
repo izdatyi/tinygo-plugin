@@ -21,14 +21,20 @@ internal abstract class OSUtilsImpl : OSUtils {
 }
 
 internal class WindowsUtils : OSUtilsImpl() {
-    override fun suggestedDirectories(): Collection<String> =
-        listOf(
+    override fun suggestedDirectories(): Collection<String> {
+        val userHome = System.getProperty("user.home") ?: ""
+        return listOfNotNull(
+            System.getenv("TINYGOROOT"),
+            "${System.getenv("SCOOP")}\\apps\\tinygo\\current",
             "${System.getenv("SCOOP")}\\tinygo",
+            "${System.getenv("SCOOP_GLOBAL")}\\apps\\tinygo\\current",
             "${System.getenv("SCOOP_GLOBAL")}\\tinygo",
+            if (userHome.isNotEmpty()) "$userHome\\scoop\\apps\\tinygo\\current" else null,
             "C:\\tinygo",
             "C:\\Program Files\\tinygo",
             "C:\\Program Files (x86)\\tinygo"
         )
+    }
 
     override fun executableName(): String {
         return "tinygo.exe"
