@@ -4,8 +4,6 @@ import com.goide.GoLibrariesUtil
 import com.goide.project.GoModuleSettings
 import com.goide.sdk.GoSdk
 import com.goide.sdk.GoSdkService
-import com.goide.util.GoUtil
-import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.module.Module
@@ -14,7 +12,6 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.RootsChangeRescanningInfo
 import com.intellij.openapi.roots.ModuleRootEvent
 import com.intellij.openapi.roots.ModuleRootListener
-import com.intellij.ui.EditorNotifications
 import com.intellij.util.application
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.util.messages.MessageBus
@@ -76,11 +73,7 @@ class CachedGoRootInvalidator(private val project: Project) : TinyGoExtractionFa
 internal fun updateExtLibrariesAndCleanCache(project: Project) {
     if (!project.isDisposed) {
         application.assertIsDispatchThread()
-        project.service<GoSdkService>().incModificationCount()
-        GoUtil.cleanResolveCache(project)
         GoLibrariesUtil.updateLibraries(project, RootsChangeRescanningInfo.TOTAL_RESCAN, { }, null)
-        DaemonCodeAnalyzer.getInstance(project).restart()
-        EditorNotifications.getInstance(project).updateAllNotifications()
     }
 }
 

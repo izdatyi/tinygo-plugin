@@ -51,33 +51,12 @@ internal data class TinyGoConfigurationImpl(
                 val sdk = GoSdk.fromUrl(url)
                 if (sdk != GoSdk.NULL && sdk.srcDir != null) return sdk
             }
-            val fallback = findFallbackCachedGoRoot()
-            if (fallback != null) {
-                projectConfig.cachedGoRootUrl = fallback.homeUrl
-                return fallback
-            }
             return userConfig.cachedGoRoot
         }
         set(value) {
             projectConfig.cachedGoRootUrl = value.homeUrl
             userConfig.cachedGoRoot = value
         }
-
-    private fun findFallbackCachedGoRoot(): GoSdk? {
-        val app = com.intellij.openapi.application.ApplicationManager.getApplication()
-        if (app != null && app.isUnitTestMode) return null
-        val localAppData = System.getenv("LOCALAPPDATA") ?: ""
-        val tinygoDir = if (localAppData.isNotEmpty()) File(localAppData, "tinygo") else null
-        val latestGoroot = if (tinygoDir != null && tinygoDir.isDirectory) {
-            tinygoDir.listFiles { f -> f.isDirectory && f.name.startsWith("goroot-") }
-                ?.maxByOrNull { it.lastModified() }
-        } else {
-            null
-        }
-        val gorootPath = latestGoroot?.absolutePath ?: return null
-        val sdk = GoSdk.fromUrl(VfsUtil.pathToUrl(gorootPath))
-        return if (sdk != GoSdk.NULL && sdk.srcDir != null) sdk else null
-    }
 
     override fun saveState(project: Project) {
         GoUtil.cleanResolveCache(project)
