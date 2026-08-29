@@ -38,9 +38,15 @@ class TinyGoImportResolver : GoImportResolver {
         // extract import
         val importPath = extractImportPath(reference)
         val resolveResult = innerResolve(importPath, project, module)
-        return resolveResult?.asSequence()?.map { it.directories }?.flatten()?.filterNotNull()
+        return resolveResult
+            ?.asSequence()
+            ?.map { it.directories }
+            ?.flatten()
+            ?.filterNotNull()
             ?.mapNotNull { project.service<PsiManager>().findDirectory(it) }
-            ?.map { PsiElementResolveResult(it) }?.toList()?.toTypedArray()
+            ?.map { PsiElementResolveResult(it) }
+            ?.toList()
+            ?.toTypedArray()
     }
 
     private fun innerResolve(
@@ -63,7 +69,11 @@ class TinyGoImportResolver : GoImportResolver {
 }
 
 // Plan to use for caching
-internal fun extractFile(resolveState: ResolveState?, module: Module?, project: Project): UserDataHolder {
+internal fun extractFile(
+    resolveState: ResolveState?,
+    module: Module?,
+    project: Project,
+): UserDataHolder {
     val context = GoPsiImplUtil.getContextElement(resolveState)
     val file = context?.containingFile
     // return the first thing that is not null among original file, module or project

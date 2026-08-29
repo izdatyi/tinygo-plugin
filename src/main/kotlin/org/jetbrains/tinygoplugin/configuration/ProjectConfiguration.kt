@@ -40,8 +40,9 @@ data class ProjectConfigurationState(
 
 @State(name = "TinyGoPlugin", storages = [Storage("tinygoSettings.xml")])
 @Service(Service.Level.PROJECT)
-internal class ProjectConfigurationImpl(val project: Project) :
-    PersistentStateComponent<ProjectConfigurationState> {
+internal class ProjectConfigurationImpl(
+    val project: Project,
+) : PersistentStateComponent<ProjectConfigurationState> {
     var myState = ProjectConfigurationState()
     private val context: ConversionContextImpl
 
@@ -64,7 +65,7 @@ internal class ProjectConfigurationImpl(val project: Project) :
         // collapse paths
         return myState.copy(
             targetPlatform = context.collapsePath(myState.targetPlatform),
-            userTargets = myState.userTargets.map(context::collapsePath)
+            userTargets = myState.userTargets.map(context::collapsePath),
         )
     }
 }

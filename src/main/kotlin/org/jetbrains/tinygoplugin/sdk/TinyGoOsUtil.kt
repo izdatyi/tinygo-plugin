@@ -7,17 +7,20 @@ import com.intellij.util.concurrency.annotations.RequiresReadLock
 
 interface OSUtils {
     fun suggestedDirectories(): Collection<String>
+
     fun executableName(): String
+
     fun executableBaseName(): String = "tinygo"
+
     @RequiresReadLock
     fun executableVFile(sdkRoot: VirtualFile?): VirtualFile?
+
     fun emulatedArch(arch: String): String = arch
 }
 
 internal abstract class OSUtilsImpl : OSUtils {
     @RequiresReadLock
-    override fun executableVFile(sdkRoot: VirtualFile?): VirtualFile? =
-        sdkRoot?.findChild("bin")?.findChild(executableName())
+    override fun executableVFile(sdkRoot: VirtualFile?): VirtualFile? = sdkRoot?.findChild("bin")?.findChild(executableName())
 }
 
 internal class WindowsUtils : OSUtilsImpl() {
@@ -32,23 +35,19 @@ internal class WindowsUtils : OSUtilsImpl() {
             if (userHome.isNotEmpty()) "$userHome\\scoop\\apps\\tinygo\\current" else null,
             "C:\\tinygo",
             "C:\\Program Files\\tinygo",
-            "C:\\Program Files (x86)\\tinygo"
+            "C:\\Program Files (x86)\\tinygo",
         )
     }
 
-    override fun executableName(): String {
-        return "tinygo.exe"
-    }
+    override fun executableName(): String = "tinygo.exe"
 }
 
 internal abstract class UnixUtils : OSUtilsImpl() {
-    override fun executableName(): String =
-        "tinygo"
+    override fun executableName(): String = "tinygo"
 }
 
 internal class UnknownOSUtils : UnixUtils() {
-    override fun suggestedDirectories(): Collection<String> =
-        emptyList()
+    override fun suggestedDirectories(): Collection<String> = emptyList()
 }
 
 internal class MacOSUtils : UnixUtils() {
@@ -56,14 +55,14 @@ internal class MacOSUtils : UnixUtils() {
         val macPorts = "/opt/local/lib/tinygo"
         val homeBrew = "/usr/local/Cellar/tinygo"
         val file = FileUtil.findFirstThatExist(macPorts, homeBrew)
-        val tinyGoSdkDirectories = file?.canonicalFile?.listFiles { child ->
-            checkDirectoryForTinyGo(child)
-        }
+        val tinyGoSdkDirectories =
+            file?.canonicalFile?.listFiles { child ->
+                checkDirectoryForTinyGo(child)
+            }
         return if (tinyGoSdkDirectories.isNullOrEmpty()) emptyList() else tinyGoSdkDirectories.map { f -> f.path }
     }
 
-    override fun emulatedArch(arch: String): String =
-        if (arch == "arm64") "amd64" else arch
+    override fun emulatedArch(arch: String): String = if (arch == "arm64") "amd64" else arch
 }
 
 internal class LinuxUtils : UnixUtils() {

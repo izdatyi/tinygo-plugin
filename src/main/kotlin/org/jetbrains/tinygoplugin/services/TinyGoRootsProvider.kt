@@ -9,15 +9,23 @@ import org.jetbrains.tinygoplugin.configuration.tinyGoConfiguration
 import java.util.Collections
 
 class TinyGoRootsProvider : GoRootsProvider {
+    override fun getGoPathRoots(
+        p0: Project?,
+        p1: Module?,
+    ): MutableCollection<VirtualFile> = Collections.emptyList()
 
-    override fun getGoPathRoots(p0: Project?, p1: Module?): MutableCollection<VirtualFile> = Collections.emptyList()
+    override fun getGoPathSourcesRoots(
+        p0: Project?,
+        p1: Module?,
+    ): MutableCollection<VirtualFile> = Collections.emptyList()
 
-    override fun getGoPathSourcesRoots(p0: Project?, p1: Module?): MutableCollection<VirtualFile> =
-        Collections.emptyList()
-
-    override fun getGoPathBinRoots(p0: Project?, p1: Module?): MutableCollection<VirtualFile> = Collections.emptyList()
+    override fun getGoPathBinRoots(
+        p0: Project?,
+        p1: Module?,
+    ): MutableCollection<VirtualFile> = Collections.emptyList()
 
     override fun isExternal(): Boolean = false
+
     @Suppress("ReturnCount")
     override fun getVendorDirectoriesInResolveScope(
         project: Project,

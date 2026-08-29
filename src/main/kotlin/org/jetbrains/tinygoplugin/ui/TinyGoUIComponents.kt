@@ -50,9 +50,10 @@ fun generateTinyGoNewProjectSettingsPanel(
     projectPathSupplier: () -> String,
     wrapper: TinyGoPropertiesWrapper,
     parent: Disposable,
-): JPanel = panel {
-    tinyGoSettings(project, projectPathSupplier, wrapper, parent, deferSdkDownload = true)
-}
+): JPanel =
+    panel {
+        tinyGoSettings(project, projectPathSupplier, wrapper, parent, deferSdkDownload = true)
+    }
 
 private fun AtomicBoolean.lockOrSkip(action: () -> Unit) {
     if (!compareAndSet(false, true)) return
@@ -70,6 +71,8 @@ fun TinyGoSdkChooserCombo.bind(property: GraphProperty<TinyGoSdk>) {
             if (it != nullSdk && it.homeUrl.isNotEmpty()) {
                 addSdk(it, true)
                 selectSdkByUrl(it.homeUrl)
+            } else {
+                selectSdkByUrl(nullSdk.homeUrl)
             }
         }
     }
@@ -77,9 +80,7 @@ fun TinyGoSdkChooserCombo.bind(property: GraphProperty<TinyGoSdk>) {
     addChangedListener {
         mutex.lockOrSkip {
             val selected = this.sdk
-            if (selected != nullSdk) {
-                property.set(selected)
-            }
+            property.set(selected)
         }
     }
 }
@@ -91,8 +92,8 @@ fun Row.tinyGoSdkComboChooser(
     property: GraphProperty<TinyGoSdk>,
     parentDisposable: Disposable,
     deferSdkDownload: Boolean,
-): Cell<TinyGoSdkChooserCombo> {
-    return cell(TinyGoSdkChooserCombo(projectPathSupplier, project, deferSdkDownload))
+): Cell<TinyGoSdkChooserCombo> =
+    cell(TinyGoSdkChooserCombo(projectPathSupplier, project, deferSdkDownload))
         .align(Align.FILL)
         .applyToComponent {
             this.launchOnShow("tinyGoSdkComboChooser", Dispatchers.Default) {
@@ -107,19 +108,18 @@ fun Row.tinyGoSdkComboChooser(
                 }
             }
             Disposer.register(parentDisposable, this)
-        }
-        .bind(
+        }.bind(
             { component: TinyGoSdkChooserCombo -> component.sdk },
             { component: TinyGoSdkChooserCombo, value: TinyGoSdk ->
                 if (value != nullSdk && value.homeUrl.isNotEmpty()) {
                     component.addSdk(value, true)
                     component.selectSdkByUrl(value.homeUrl)
+                } else {
+                    component.selectSdkByUrl(nullSdk.homeUrl)
                 }
             },
-            UIPropertyAdapter(property)
-        )
-        .applyToComponent { bind(property) }
-}
+            UIPropertyAdapter(property),
+        ).applyToComponent { bind(property) }
 
 private const val SDK_LABEL = "ui.sdk"
 private const val TARGET_LABEL = "ui.target.platform"
@@ -138,13 +138,14 @@ private fun Panel.tinyGoSettings(
 ) {
     lateinit var tinyGoSdkComboChooser: Cell<TinyGoSdkChooserCombo>
     row(TinyGoBundle.message(SDK_LABEL)) {
-        tinyGoSdkComboChooser = tinyGoSdkComboChooser(
-            project,
-            projectPathSupplier,
-            wrapper.tinyGoSdkPath,
-            parentDisposable,
-            deferSdkDownload,
-        )
+        tinyGoSdkComboChooser =
+            tinyGoSdkComboChooser(
+                project,
+                projectPathSupplier,
+                wrapper.tinyGoSdkPath,
+                parentDisposable,
+                deferSdkDownload,
+            )
     }
     panel {
         group(TinyGoBundle.message(COMPILER_PARAMETERS_LABEL)) {
@@ -173,11 +174,12 @@ private fun Panel.tinyGoSettings(
 private fun Row.targetChooser(
     project: Project?,
     wrapper: TinyGoPropertiesWrapper,
-    sdk: Cell<TinyGoSdkChooserCombo>
+    sdk: Cell<TinyGoSdkChooserCombo>,
 ) {
-    val jsonChooser = FileChooserDescriptor(true, false, false, false, false, false)
-        .withFileFilter { it.fileType == JsonFileType.INSTANCE }
-        .withTitle(TinyGoBundle.message(TARGET_BROWSE_DIALOG_TITLE))
+    val jsonChooser =
+        FileChooserDescriptor(true, false, false, false, false, false)
+            .withFileFilter { it.fileType == JsonFileType.INSTANCE }
+            .withTitle(TinyGoBundle.message(TARGET_BROWSE_DIALOG_TITLE))
     cell(textFieldWithHistoryWithBrowseButton(project, jsonChooser, { wrapper.userTargets }))
         .align(Align.FILL)
         .bind(
@@ -189,22 +191,64 @@ private fun Row.targetChooser(
                     component.childComponent.selectedIndex = historyIndex
                 }
             },
-            UIPropertyAdapter(wrapper.target)
-        )
-        .applyToComponent {
-            childComponent.addItemListener {
-                if (childComponent.isShowing) {
-                    val newItem = it.item as String
-                    wrapper.target.set(newItem)
+            UIPropertyAdapter(wrapper.target),
+        ).applyToComponent {
+            val initial = wrapper.target.get()
+            if (initial.isNotEmpty()) {
+                text = initial
+                val historyIndex = childComponent.history.indexOf(initial)
+                if (historyIndex >= 0) {
+                    childComponent.selectedIndex = historyIndex
                 }
             }
-            sdk.component.addChangedListener {
+            wrapper.target.afterChange {
+                if (childComponent.text != it) {
+                    childComponent.text = it
+                    val historyIndex = childComponent.history.indexOf(it)
+                    if (historyIndex >= 0) {
+                        childComponent.selectedIndex = historyIndex
+                    }
+                }
+            }
+            childComponent.addItemListener {
+                if (it.stateChange == ItemEvent.SELECTED) {
+                    val newItem = (it.item as? String) ?: ""
+                    if (newItem.isNotEmpty() && newItem != wrapper.target.get()) {
+                        wrapper.target.set(newItem)
+                    }
+                }
+            }
+            val updateHistory = {
+                val currentText = childComponent.text.ifEmpty { wrapper.target.get() }
                 childComponent.history = wrapper.userTargets
+                if (currentText.isNotEmpty()) {
+                    childComponent.text = currentText
+                    val historyIndex = childComponent.history.indexOf(currentText)
+                    if (historyIndex >= 0) {
+                        childComponent.selectedIndex = historyIndex
+                    }
+                }
+            }
+            findHistoryConfig(wrapper.obj.tinyGoSettings)?.onTargetsUpdated = updateHistory
+            sdk.component.addChangedListener {
+                updateHistory()
             }
         }
 }
 
-private class UIPropertyAdapter<T>(private val property: GraphProperty<T>) : MutableProperty<T> {
+private fun findHistoryConfig(
+    cfg: org.jetbrains.tinygoplugin.configuration.TinyGoConfiguration,
+): org.jetbrains.tinygoplugin.configuration.ConfigurationWithHistory? {
+    if (cfg is org.jetbrains.tinygoplugin.configuration.ConfigurationWithHistory) return cfg
+    if (cfg is org.jetbrains.tinygoplugin.services.TinyGoConfigurationWithTagUpdate) {
+        return findHistoryConfig(cfg.settings)
+    }
+    return null
+}
+
+private class UIPropertyAdapter<T>(
+    private val property: GraphProperty<T>,
+) : MutableProperty<T> {
     override fun get(): T = property.get()
 
     override fun set(value: T) {
@@ -216,21 +260,27 @@ private const val EXPORT_TARGET_BUTTON = "ui.target.export"
 private const val EXPORT_TARGET_DIALOG_TITLE = "ui.target.export.dialog.title"
 private const val EXPORT_TARGET_DIALOG_DESCRIPTION = "ui.target.export.dialog.description"
 
-fun Row.exportButton(project: Project?, wrapper: TinyGoPropertiesWrapper) {
+fun Row.exportButton(
+    project: Project?,
+    wrapper: TinyGoPropertiesWrapper,
+) {
     button(TinyGoBundle.message(EXPORT_TARGET_BUTTON)) {
         TinyGoServiceScope.getScope(project).launch(ModalityState.current().asContextElement()) {
             val target = createTargetWrapper(wrapper) ?: return@launch
-            val jsonChooser = FileSaverDescriptor(
-                TinyGoBundle.message(EXPORT_TARGET_DIALOG_TITLE),
-                TinyGoBundle.message(EXPORT_TARGET_DIALOG_DESCRIPTION),
-                JsonFileType.DEFAULT_EXTENSION
-            )
-            var file = withContext(Dispatchers.EDT) {
-                val chooserDialog = service<FileChooserFactory>()
-                    .createSaveFileDialog(jsonChooser, null)
-                    .save(null)
-                chooserDialog?.file
-            } ?: return@launch
+            val jsonChooser =
+                FileSaverDescriptor(
+                    TinyGoBundle.message(EXPORT_TARGET_DIALOG_TITLE),
+                    TinyGoBundle.message(EXPORT_TARGET_DIALOG_DESCRIPTION),
+                    JsonFileType.DEFAULT_EXTENSION,
+                )
+            var file =
+                withContext(Dispatchers.EDT) {
+                    val chooserDialog =
+                        service<FileChooserFactory>()
+                            .createSaveFileDialog(jsonChooser, null)
+                            .save(null)
+                    chooserDialog?.file
+                } ?: return@launch
             if (!file.name.endsWith(".json")) {
                 file = File(file.path + ".json")
             }

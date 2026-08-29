@@ -53,10 +53,17 @@ class TinyGoSdkList : PersistentStateComponent<TinyGoSdkListStorage> {
             }
         }
 
-    private fun saveLoadedSdk() = lockStorage {
-        loadedSdks.forEach { storedSdks.savedSdks.add(it.homeUrl, it.sdkVersion) }
-    }
+    fun retainOnly(validSdks: Collection<TinyGoSdk>) =
+        lockStorage {
+            val validUrls = validSdks.map { it.homeUrl }.toSet()
+            storedSdks.savedSdks.removeIf { !validUrls.contains(it.sdkUrl) }
+            loadedSdks.removeIf { !validUrls.contains(it.homeUrl) }
+        }
+
+    private fun saveLoadedSdk() =
+        lockStorage {
+            loadedSdks.forEach { storedSdks.savedSdks.add(it.homeUrl, it.sdkVersion) }
+        }
 }
 
-internal inline fun TinyGoSdkList.lockStorage(block: () -> Unit): Unit =
-    synchronized(storedSdks, block)
+internal inline fun TinyGoSdkList.lockStorage(block: () -> Unit): Unit = synchronized(storedSdks, block)

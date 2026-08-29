@@ -124,7 +124,7 @@ open class TinyGoSdk(
     override fun hashCode(): Int = Objects.hash(tinyGoHomeUrl)
 }
 
-private fun urlToPath(url: String?): String? = url?.let { URLUtil.urlToPath(it) }
+internal fun urlToPath(url: String?): String? = url?.let { URLUtil.urlToPath(it) }
 
 const val TINY_GO_VERSION_REGEX = """tinygo version (\d+.\d+.\d+)"""
 

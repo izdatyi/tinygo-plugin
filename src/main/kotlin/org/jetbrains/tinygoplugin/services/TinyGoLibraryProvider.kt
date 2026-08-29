@@ -16,12 +16,14 @@ class TinyGoRootLibrary(
     private val moduleName: String,
     private val sourceRoots: Collection<VirtualFile>,
     private val excludedRoots: Set<VirtualFile>,
-) : GoSyntheticLibrary("TinyGoCachedGoRoot", null), ItemPresentation {
+) : GoSyntheticLibrary("TinyGoCachedGoRoot", null),
+    ItemPresentation {
     override fun equals(other: Any?): Boolean {
         if (other == null || other !is TinyGoRootLibrary) {
             return false
         }
-        return other.moduleName == moduleName && other.sourceRoots == sourceRoots &&
+        return other.moduleName == moduleName &&
+            other.sourceRoots == sourceRoots &&
             other.excludedRoots == excludedRoots
     }
 
@@ -60,7 +62,7 @@ class TinyGoLibraryProvider : AdditionalLibraryRootsProvider() {
                 "TinyGo ${settings.sdk.sdkVersion} (Go ${settings.cachedGoRoot.version})",
                 tinyGoRoots,
                 excludedRoots,
-            )
+            ),
         )
     }
 

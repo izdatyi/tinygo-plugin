@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.tinygoplugin.TinyGoBundle
 import org.jetbrains.tinygoplugin.configuration.TinyGoSdkList
+import java.io.File
 import java.io.IOException
 import java.util.function.Consumer
 
@@ -49,7 +50,10 @@ class TinyGoDownloaderDialog(
         val logger = logger<TinyGoDownloaderDialog>()
     }
 
-    override fun createDownloadingSdk(version: String, path: String): TinyGoSdk {
+    override fun createDownloadingSdk(
+        version: String,
+        path: String,
+    ): TinyGoSdk {
         if (path.isEmpty()) {
             return TinyGoDownloadingSdk(version, null)
         }
@@ -84,14 +88,22 @@ class TinyGoDownloaderDialog(
             if (!releases.isArray) {
                 return false
             }
-            val versions = releases.asSequence().filter { node ->
-                node["assets"].asSequence().filter { asset ->
-                    val emulatedArch = osManager.emulatedArch(arch)
-                    asset["name"].textValue().matches(Regex(".*[.]($os-($arch|$emulatedArch))[.](tar.gz|zip|deb)"))
-                }.any()
-            }.map { node ->
-                node["tag_name"].textValue()
-            }.distinct().map { it.substring(1) }.sorted().toMutableList()
+            val versions =
+                releases
+                    .asSequence()
+                    .filter { node ->
+                        node["assets"]
+                            .asSequence()
+                            .filter { asset ->
+                                val emulatedArch = osManager.emulatedArch(arch)
+                                asset["name"].textValue().matches(Regex(".*[.]($os-($arch|$emulatedArch))[.](tar.gz|zip|deb)"))
+                            }.any()
+                    }.map { node ->
+                        node["tag_name"].textValue()
+                    }.distinct()
+                    .map { it.substring(1) }
+                    .sorted()
+                    .toMutableList()
             versionConsumer.accept(versions)
         } catch (e: IOException) {
             return false
@@ -103,7 +115,9 @@ class TinyGoDownloaderDialog(
 const val TINYGO_LOCAL_FILE_DESCRIPTOR_TITLE = "tinygoSDK.local.fileDescriptor"
 const val TINYGO_LOCAL_ERROR_INVALID_DIR = "tinygoSDK.local.error"
 
-class TinyGoLocalSdkAction(private val combo: GoBasedSdkChooserCombo<TinyGoSdk>) : DumbAwareAction({ "Local..." }) {
+class TinyGoLocalSdkAction(
+    private val combo: GoBasedSdkChooserCombo<TinyGoSdk>,
+) : DumbAwareAction({ "Local..." }) {
     companion object {
         val logger = logger<TinyGoLocalSdkAction>()
     }
@@ -117,27 +131,32 @@ class TinyGoLocalSdkAction(private val combo: GoBasedSdkChooserCombo<TinyGoSdk>)
             val selectedDir = combo.sdk.sdkRoot
             logger.debug("Select local SDK action triggered")
 
-            val suggestedDirectory = withContext(Dispatchers.IO) {
-                suggestSdkDirectory()
-            }
+            val suggestedDirectory =
+                withContext(Dispatchers.IO) {
+                    suggestSdkDirectory()
+                }
             var preselection = selectedDir
             if (preselection == null && suggestedDirectory != null) {
                 preselection = readAction { VfsUtil.findFile(suggestedDirectory.toPath(), false) }
             }
-            val descriptor = object : FileChooserDescriptor(false, true, false, false, false, false) {
-                override fun validateSelectedFiles(files: Array<out VirtualFile>) {
-                    if (files.isNotEmpty()) {
-                        val valid = checkDirectoryForTinyGo(files[0])
-                        if (!valid) {
-                            throw IllegalArgumentException(TinyGoBundle.message(TINYGO_LOCAL_ERROR_INVALID_DIR))
+            val descriptor =
+                object : FileChooserDescriptor(false, true, false, false, false, false) {
+                    override fun validateSelectedFiles(files: Array<out VirtualFile>) {
+                        if (files.isNotEmpty()) {
+                            val valid = checkDirectoryForTinyGo(files[0])
+                            if (!valid) {
+                                throw IllegalArgumentException(TinyGoBundle.message(TINYGO_LOCAL_ERROR_INVALID_DIR))
+                            }
                         }
                     }
                 }
-            }
             descriptor.title = TinyGoBundle.message(TINYGO_LOCAL_FILE_DESCRIPTOR_TITLE)
             withContext(Dispatchers.EDT) {
                 FileChooser.chooseFile(
-                    descriptor, null, combo, preselection
+                    descriptor,
+                    null,
+                    combo,
+                    preselection,
                 ) { selectedFile ->
                     launch {
                         val sdk = TinyGoSdk(selectedFile.url, null)
@@ -153,7 +172,7 @@ class TinyGoLocalSdkAction(private val combo: GoBasedSdkChooserCombo<TinyGoSdk>)
                             Messages.showErrorDialog(
                                 combo,
                                 TinyGoBundle.message(TINYGO_LOCAL_ERROR_INVALID_DIR),
-                                TinyGoBundle.message(TINYGO_LOCAL_FILE_DESCRIPTOR_TITLE)
+                                TinyGoBundle.message(TINYGO_LOCAL_FILE_DESCRIPTOR_TITLE),
                             )
                             logger.debug("Selected local TinyGo SDK is invalid")
                         }
@@ -168,19 +187,25 @@ class TinyGoSdkChooserCombo(
     private val projectPathSupplier: () -> String,
     private val project: Project?,
     private val deferSdkDownload: Boolean,
-) :
-    GoBasedSdkChooserCombo<TinyGoSdk>(
+) : GoBasedSdkChooserCombo<TinyGoSdk>(
         Validator { ValidationResult.OK },
         object : GoSdkListProvider<TinyGoSdk> {
             override fun getAllKnownSdks(): MutableList<TinyGoSdk> {
                 val loadedSdks = service<TinyGoSdkList>().loadedSdks.toList()
                 val downloadingSdks = service<TinyGoDownloadSdkService>().downloadingTinyGoSdks.toList()
-                return (loadedSdks + downloadingSdks).toMutableList()
+                val all = (loadedSdks + downloadingSdks).toMutableList()
+                return all
+                    .filter {
+                        val path = urlToPath(it.homeUrl)
+                        path != null && File(path).exists()
+                    }.toMutableList()
             }
 
             @RequiresBackgroundThread
-            override fun discoverSdks(): MutableList<TinyGoSdk> = allKnownSdks.onEach { sdk ->
-                sdk.refreshValidity()
+            override fun discoverSdks(): MutableList<TinyGoSdk> {
+                val valid = allKnownSdks.filter { it.refreshValidity() }
+                service<TinyGoSdkList>().retainOnly(valid)
+                return valid.toMutableList()
             }
         },
         GoSdkActionsProvider {
@@ -190,9 +215,9 @@ class TinyGoSdkChooserCombo(
                     projectPathSupplier,
                     it,
                     TinyGoDownloaderDialog(project, deferSdkDownload) { sdk -> it.addSdk(sdk, true) },
-                    VersionComparatorUtil.COMPARATOR.reversed()
-                )
+                    VersionComparatorUtil.COMPARATOR.reversed(),
+                ),
             )
         },
-        nullSdk
+        nullSdk,
     )

@@ -13,7 +13,9 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 
 @Service(Service.Level.PROJECT)
-class UnsupportedPackageProvider(private val project: Project) {
+class UnsupportedPackageProvider(
+    private val project: Project,
+) {
     private fun loadUnsupportedLibraries(version: TinyGoSdkVersion): Set<String> {
         val stream = this.javaClass.classLoader.getResourceAsStream("libraries/$version.yaml")
         if (stream == null) {
@@ -21,12 +23,15 @@ class UnsupportedPackageProvider(private val project: Project) {
             return emptySet()
         }
         val data: Map<String, Any> = Yaml().load(stream)
-        return data.mapValues { entry ->
-            if (entry.value is Boolean) entry.value as Boolean else true
-        }.filterValues { !it }.keys
+        return data
+            .mapValues { entry ->
+                if (entry.value is Boolean) entry.value as Boolean else true
+            }.filterValues { !it }
+            .keys
     }
 
     private val unsupportedLibrariesCache: ConcurrentMap<TinyGoSdkVersion, Set<String>> = ConcurrentHashMap()
+
     fun unsupportedLibraries(): Set<String> {
         val settings = project.tinyGoConfiguration()
         val version = settings.sdk.sdkVersion
@@ -38,7 +43,10 @@ class UnsupportedPackageProvider(private val project: Project) {
 }
 
 class TinyGoImportsFilter : GoImportsFilter {
-    override fun isExcluded(project: Project, import: String): Boolean {
+    override fun isExcluded(
+        project: Project,
+        import: String,
+    ): Boolean {
         if (!isTinyGoActive(project)) return false
         val unsupportedPackages = project.service<UnsupportedPackageProvider>()
         return unsupportedPackages.unsupportedLibraries().contains(import)

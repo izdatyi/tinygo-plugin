@@ -13,7 +13,10 @@ import org.jetbrains.tinygoplugin.configuration.TinyGoConfiguration
 import org.jetbrains.tinygoplugin.configuration.tinyGoConfiguration
 import org.jetbrains.tinygoplugin.runconfig.TinyGoRunConfiguration
 
-fun isTinyGoActive(project: Project, module: Module? = null): Boolean {
+fun isTinyGoActive(
+    project: Project,
+    module: Module? = null,
+): Boolean {
     val config = project.tinyGoConfiguration()
     val cached = config.cachedGoRoot
     if (!config.enabled || cached == GoSdk.NULL || cached.srcDir == null) return false
@@ -24,7 +27,10 @@ fun isTinyGoActive(project: Project, module: Module? = null): Boolean {
     return osMatch && archMatch
 }
 
-fun propagateGoFlags(project: Project, settings: TinyGoConfiguration) {
+fun propagateGoFlags(
+    project: Project,
+    settings: TinyGoConfiguration,
+) {
     val modules = ModuleManager.getInstance(project).modules
     if (modules.isEmpty()) {
         logger<TinyGoSettingsService>().warn("Could not find go modules")
@@ -35,7 +41,11 @@ fun propagateGoFlags(project: Project, settings: TinyGoConfiguration) {
         val buildSettings = com.goide.project.GoBuildTargetSettings()
         buildSettings.arch = settings.goArch
         buildSettings.os = settings.goOS
-        buildSettings.customFlags = settings.goTags.split(' ').filter { it.isNotBlank() }.toTypedArray()
+        buildSettings.customFlags =
+            settings.goTags
+                .split(' ')
+                .filter { it.isNotBlank() }
+                .toTypedArray()
         goSettings.buildTargetSettings = buildSettings
     }
     project.save()
@@ -55,10 +65,15 @@ fun resetGoFlags(project: Project) {
     project.save()
 }
 
-fun updateTinyGoRunConfigurations(project: Project, settings: TinyGoConfiguration) {
-    val configurations = RunManager.getInstance(project)
-        .allConfigurationsList
-        .filterIsInstance<TinyGoRunConfiguration>()
+fun updateTinyGoRunConfigurations(
+    project: Project,
+    settings: TinyGoConfiguration,
+) {
+    val configurations =
+        RunManager
+            .getInstance(project)
+            .allConfigurationsList
+            .filterIsInstance<TinyGoRunConfiguration>()
     configurations.forEach {
         it.runConfig.targetPlatform = settings.targetPlatform
         it.runConfig.scheduler = settings.scheduler

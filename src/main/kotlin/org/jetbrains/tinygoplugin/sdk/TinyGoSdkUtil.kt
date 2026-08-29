@@ -22,27 +22,36 @@ fun notifyTinyGoNotConfigured(
     project: Project?,
     content: String,
 ) {
-    val notification = GoNotifications.getGeneralGroup()
-        .createNotification(
-            TinyGoBundle.message(CONFIGURATION_INCOMPLETE_NOTIFICATION),
-            content,
-            NotificationType.WARNING
-        )
-    notification.addAction(object : NotificationAction("TinyGo settings") {
-        override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+    val notification =
+        GoNotifications
+            .getGeneralGroup()
+            .createNotification(
+                TinyGoBundle.message(CONFIGURATION_INCOMPLETE_NOTIFICATION),
+                content,
+                NotificationType.WARNING,
+            )
+    notification.addAction(
+        object : NotificationAction("TinyGo settings") {
+            override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
-        override fun actionPerformed(e: AnActionEvent, notification: Notification) {
-            if (project == null) return
-            service<ShowSettingsUtil>().editConfigurable(project, TinyGoSettingsService(project))
-        }
-    })
+            override fun actionPerformed(
+                e: AnActionEvent,
+                notification: Notification,
+            ) {
+                if (project == null) return
+                service<ShowSettingsUtil>().editConfigurable(project, TinyGoSettingsService(project))
+            }
+        },
+    )
     notification.notify(project)
 }
 
 fun suggestSdkDirectoryStr(): String = suggestSdkDirectory()?.canonicalPath ?: ""
 
-fun suggestSdkDirectories(): Collection<File> {
-    return osManager.suggestedDirectories().asSequence()
+fun suggestSdkDirectories(): Collection<File> =
+    osManager
+        .suggestedDirectories()
+        .asSequence()
         .map { File(it) }
         .filter(File::exists)
         .filter(::checkBin)
@@ -50,7 +59,6 @@ fun suggestSdkDirectories(): Collection<File> {
         .filter(::checkMachinesSources)
         .distinctBy { it.canonicalPath }
         .toList()
-}
 
 fun findTinyGoInPath(): File? {
     val tinyGoExec =
@@ -60,10 +68,11 @@ fun findTinyGoInPath(): File? {
 
 fun suggestSdkDirectory(): File? {
     val tinyGoPath = findTinyGoInPath()
-    val isValid = tinyGoPath != null &&
-        checkBin(tinyGoPath) &&
-        checkTargets(tinyGoPath) &&
-        checkMachinesSources(File(tinyGoPath, "src"))
+    val isValid =
+        tinyGoPath != null &&
+            checkBin(tinyGoPath) &&
+            checkTargets(tinyGoPath) &&
+            checkMachinesSources(File(tinyGoPath, "src"))
     if (isValid) {
         return tinyGoPath
     }
@@ -80,7 +89,15 @@ fun createTinyGoEnvironment(
 
     var goBinDir: String? = null
     val goSdk = GoSdkService.getInstance(project).getSdk(null)
-    val goHome = if (goSdk.isValid) goSdk.homeUrl.let { com.intellij.openapi.vfs.VfsUtil.urlToPath(it) } else ""
+    val goHome =
+        if (goSdk.isValid) {
+            goSdk.homeUrl.let {
+                com.intellij.openapi.vfs.VfsUtil
+                    .urlToPath(it)
+            }
+        } else {
+            ""
+        }
     if (goHome.isNotEmpty()) {
         val goHomeFile = File(goHome)
         env["GOROOT"] = goHomeFile.absolutePath

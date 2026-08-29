@@ -35,14 +35,18 @@ import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
 
-open class TinyGoRunningState(env: ExecutionEnvironment, module: Module, configuration: TinyGoRunConfiguration) :
-    GoRunningState<TinyGoRunConfiguration>(env, module, configuration) {
+open class TinyGoRunningState(
+    env: ExecutionEnvironment,
+    module: Module,
+    configuration: TinyGoRunConfiguration,
+) : GoRunningState<TinyGoRunConfiguration>(env, module, configuration) {
     // override the function to supply GoExecutor with tinygo
     protected open val hardwareArguments: List<String> = configuration.cmdlineOptions + listOf("-size", "full")
     protected open val additionalParameters: List<String> = emptyList()
 
     override fun createRunExecutor(): GoExecutor {
-        val arguments = listOf(configuration.command) +
+        val arguments =
+            listOf(configuration.command) +
             hardwareArguments +
             additionalParameters +
             listOf(configuration.runConfig.mainFile)
@@ -52,12 +56,16 @@ open class TinyGoRunningState(env: ExecutionEnvironment, module: Module, configu
             throw ExecutionException("TinyGo SDK is not set. Please configure TinyGo SDK")
         }
 
-        val extraEnv = createTinyGoEnvironment(
+        val extraEnv =
+            createTinyGoEnvironment(
             configuration.project,
-            configuration.project.tinyGoConfiguration().sdk.sdkRoot,
-            configuration.customEnvironment
+            configuration.project
+                .tinyGoConfiguration()
+                .sdk.sdkRoot,
+            configuration.customEnvironment,
         )
-        return GoExecutor.`in`(configuration.project, null)
+        return GoExecutor
+            .`in`(configuration.project, null)
             .withExePath(tinyGoExecutablePath.path)
             .withParameters(arguments)
             .withWorkDirectory(configuration.workingDirectory)
@@ -66,15 +74,18 @@ open class TinyGoRunningState(env: ExecutionEnvironment, module: Module, configu
     }
 }
 
-class TinyGoTestRunningState(env: ExecutionEnvironment, module: Module, configuration: TinyGoRunConfiguration) :
-    TinyGoRunningState(env, module, configuration) {
+class TinyGoTestRunningState(
+    env: ExecutionEnvironment,
+    module: Module,
+    configuration: TinyGoRunConfiguration,
+) : TinyGoRunningState(env, module, configuration) {
     override val hardwareArguments: List<String> = emptyList()
 }
 
 open class TinyGoBuildRunningState(
     env: ExecutionEnvironment,
     module: Module,
-    configuration: TinyGoRunConfiguration
+    configuration: TinyGoRunConfiguration,
 ) : TinyGoRunningState(env, module, configuration) {
     override val additionalParameters: List<String> = listOf("-o", getOutputFile())
 
@@ -85,44 +96,53 @@ open class TinyGoBuildRunningState(
         val outputPathFromEditor = configuration.runConfig.outputPath
         if (outputPathFromEditor.isNotEmpty()) {
             val candidate = Paths.get(outputPathFromEditor)
-            if (candidate.isDirectory())
+            if (candidate.isDirectory()) {
                 return Paths.get(outputPathFromEditor, module!!.name + fileExtension).toString()
-            if (candidate.isRegularFile() || !candidate.exists() && candidate.parent.isDirectory())
+            }
+            if (candidate.isRegularFile() || !candidate.exists() && candidate.parent.isDirectory()) {
                 return outputPathFromEditor
+            }
         }
 
         val outputFilePrefix = "tinygo-temp-output-${module?.project?.locationHash}"
         val tempDir = System.getProperty("java.io.tmpdir")
         val candidate = Paths.get(tempDir, "$outputFilePrefix$fileExtension")
 
-        return if (Files.exists(candidate)) candidate.toString()
-        else Files.createTempFile(outputFilePrefix, fileExtension).toString()
+        return if (Files.exists(candidate)) {
+            candidate.toString()
+        } else {
+            Files.createTempFile(outputFilePrefix, fileExtension).toString()
+        }
     }
 }
 
 class TinyGoHeapAllocRunningState(
     env: ExecutionEnvironment,
     module: Module,
-    configuration: TinyGoRunConfiguration
-) :
-    TinyGoBuildRunningState(env, module, configuration) {
+    configuration: TinyGoRunConfiguration,
+) : TinyGoBuildRunningState(env, module, configuration) {
     override val additionalParameters: List<String> = super.additionalParameters + listOf("-print-allocs=.")
 
     override fun execute(
         executor: Executor,
         runner: ProgramRunner<*>,
-        processHandler: ProcessHandler
+        processHandler: ProcessHandler,
     ): ExecutionResult {
-        processHandler.addProcessListener(object : ProcessListener {
+        processHandler.addProcessListener(
+            object : ProcessListener {
             private var processOutput: String = ""
 
-            override fun onTextAvailable(event: ProcessEvent, outputType: Key<*>) {
+            override fun onTextAvailable(
+                event: ProcessEvent,
+                outputType: Key<*>,
+            ) {
                 processOutput += event.text
             }
 
             override fun processTerminated(event: ProcessEvent) {
                 TinyGoServiceScope.getScope(module!!.project).launch(ModalityState.current().asContextElement()) {
-                    val heapAllocs = withContext(Dispatchers.IO) {
+                    val heapAllocs =
+                        withContext(Dispatchers.IO) {
                         supplyHeapAllocsFromOutput(module!!, processOutput)
                     }
                     withContext(Dispatchers.EDT) {
@@ -130,7 +150,8 @@ class TinyGoHeapAllocRunningState(
                     }
                 }
             }
-        })
+        },
+                )
 
         return super.execute(executor, runner, processHandler)
     }
@@ -140,13 +161,14 @@ data class RunSettings(
     val tinyGoConfiguration: TinyGoConfiguration,
     var userArguments: String,
     var mainFile: String,
-    var outputPath: String
+    var outputPath: String,
 ) : TinyGoConfiguration by tinyGoConfiguration {
-    override fun deepCopy(): RunSettings = RunSettings(
+    override fun deepCopy(): RunSettings =
+        RunSettings(
         tinyGoConfiguration.deepCopy(),
         userArguments,
         mainFile,
-        outputPath
+        outputPath,
     )
 
     val cmdlineOptions: List<String>
@@ -162,7 +184,10 @@ data class RunSettings(
 private const val GARBAGE_COLLECTOR_FLAG = "-gc"
 private const val SCHEDULER_FLAG = "-scheduler"
 
-fun garbageCollector(userArguments: Array<String>, default: GarbageCollector): Collection<String> {
+fun garbageCollector(
+    userArguments: Array<String>,
+    default: GarbageCollector,
+): Collection<String> {
     val userDefined = userArguments.indexOf(GARBAGE_COLLECTOR_FLAG)
     if (userDefined == -1 && default == GarbageCollector.AUTO_DETECT) {
         return emptyList()
@@ -173,7 +198,10 @@ fun garbageCollector(userArguments: Array<String>, default: GarbageCollector): C
     return listOf(userArguments[userDefined], userArguments[userDefined + 1])
 }
 
-fun scheduler(userArguments: Array<String>, default: Scheduler): Collection<String> {
+fun scheduler(
+    userArguments: Array<String>,
+    default: Scheduler,
+): Collection<String> {
     val userDefined = userArguments.indexOf(SCHEDULER_FLAG)
     if (userDefined == -1 && default == Scheduler.AUTO_DETECT) {
         return emptyList()

@@ -21,7 +21,9 @@ import org.jetbrains.tinygoplugin.services.TinyGoServiceScope
 import java.util.EventListener
 import java.util.concurrent.atomic.AtomicReference
 
-internal class GoSdkChangeListener(private val project: Project) : ModuleRootListener {
+internal class GoSdkChangeListener(
+    private val project: Project,
+) : ModuleRootListener {
     private val lastGoSdkUrl = AtomicReference<String?>()
 
     override fun rootsChanged(event: ModuleRootEvent) {
@@ -30,7 +32,7 @@ internal class GoSdkChangeListener(private val project: Project) : ModuleRootLis
             val previousGoSdkUrl = lastGoSdkUrl.getAndSet(currentGoSdkUrl)
             if (previousGoSdkUrl != currentGoSdkUrl && project.tinyGoConfiguration().enabled) {
                 logger<GoSdkChangeListener>().debug(
-                    "Go SDK changed from '$previousGoSdkUrl' to '$currentGoSdkUrl'; updating cached GOROOT"
+                    "Go SDK changed from '$previousGoSdkUrl' to '$currentGoSdkUrl'; updating cached GOROOT",
                 )
                 sendReloadLibrariesSignal(project)
             }
@@ -43,7 +45,10 @@ internal class CachedGoRootUpdater : GoModuleSettings.BuildTargetListener {
         val logger = logger<CachedGoRootUpdater>()
     }
 
-    override fun changed(module: Module, batchUpdate: Boolean) {
+    override fun changed(
+        module: Module,
+        batchUpdate: Boolean,
+    ) {
         val project = module.project
         if (!project.isDisposed) {
             application.invokeLater {
@@ -59,7 +64,9 @@ interface TinyGoExtractionFailureListener : EventListener {
     fun onExtractionFailure()
 }
 
-class CachedGoRootInvalidator(private val project: Project) : TinyGoExtractionFailureListener {
+class CachedGoRootInvalidator(
+    private val project: Project,
+) : TinyGoExtractionFailureListener {
     override fun onExtractionFailure() {
         project.service<TinyGoLibraryLayoutService>().clear()
         val tinyGoSettings = project.tinyGoConfiguration()

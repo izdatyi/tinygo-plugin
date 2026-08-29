@@ -29,12 +29,10 @@ import org.jetbrains.tinygoplugin.ui.TinyGoPropertiesWrapper
 import org.jetbrains.tinygoplugin.ui.generateSettingsPanel
 
 class TinyGoConfigurationWithTagUpdate(
-    private val settings: TinyGoConfiguration,
+    internal val settings: TinyGoConfiguration,
     private val project: Project,
     private val callback: () -> Unit,
-) :
-    TinyGoConfiguration by settings {
-
+) : TinyGoConfiguration by settings {
     constructor(project: Project, callback: () -> Unit) :
         this(ConfigurationWithHistory(project, maintainPredefinedTargets = true), project, callback)
 
@@ -54,11 +52,13 @@ class TinyGoConfigurationWithTagUpdate(
     override var targetPlatform: String
         get() = settings.targetPlatform
         set(value) {
-            settings.targetPlatform = value
-            if (value.isNotEmpty()) {
-                settings.gc = GarbageCollector.AUTO_DETECT
-                settings.scheduler = Scheduler.AUTO_DETECT
-                callback()
+            if (settings.targetPlatform != value) {
+                settings.targetPlatform = value
+                if (value.isNotEmpty()) {
+                    settings.gc = GarbageCollector.AUTO_DETECT
+                    settings.scheduler = Scheduler.AUTO_DETECT
+                    callback()
+                }
             }
         }
 
@@ -93,12 +93,17 @@ class TinyGoConfigurationWithTagUpdate(
         val moduleSettings = goSettings(project)
         if (moduleSettings != null && settings.enabled) {
             val buildSettings = moduleSettings.buildTargetSettings
-            val osMatch = settings.goOS.isNotEmpty() && settings.goOS != "default" &&
-                buildSettings.os == settings.goOS
-            val archMatch = settings.goArch.isNotEmpty() && settings.goArch != "default" &&
-                buildSettings.arch == settings.goArch
-            val tagsMatch = settings.goTags.isNotEmpty() &&
-                buildSettings.customFlags.joinToString(" ") == settings.goTags
+            val osMatch =
+                settings.goOS.isNotEmpty() &&
+                    settings.goOS != "default" &&
+                    buildSettings.os == settings.goOS
+            val archMatch =
+                settings.goArch.isNotEmpty() &&
+                    settings.goArch != "default" &&
+                    buildSettings.arch == settings.goArch
+            val tagsMatch =
+                settings.goTags.isNotEmpty() &&
+                    buildSettings.customFlags.joinToString(" ") == settings.goTags
             if (!osMatch || !archMatch || !tagsMatch) {
                 return true
             }
@@ -107,8 +112,10 @@ class TinyGoConfigurationWithTagUpdate(
     }
 }
 
-class TinyGoSettingsService(private val project: Project) :
-    BoundConfigurable("TinyGo"), ConfigurationProvider<TinyGoConfiguration> {
+class TinyGoSettingsService(
+    private val project: Project,
+) : BoundConfigurable("TinyGo"),
+    ConfigurationProvider<TinyGoConfiguration> {
     // local copy of the settings
     override var tinyGoSettings: TinyGoConfiguration =
         TinyGoConfigurationWithTagUpdate(project, this::callExtractor)
@@ -140,11 +147,13 @@ class TinyGoSettingsService(private val project: Project) :
         }
         tinyGoSettings.saveState(project)
         updateExtLibrariesAndCleanCache(project)
-        val sdkOrTargetChanged = oldSdk != tinyGoSettings.sdk ||
-            oldTarget != tinyGoSettings.targetPlatform
-        val flagsChanged = oldGoOS != tinyGoSettings.goOS ||
-            oldGoArch != tinyGoSettings.goArch ||
-            oldGoTags != tinyGoSettings.goTags
+        val sdkOrTargetChanged =
+            oldSdk != tinyGoSettings.sdk ||
+                oldTarget != tinyGoSettings.targetPlatform
+        val flagsChanged =
+            oldGoOS != tinyGoSettings.goOS ||
+                oldGoArch != tinyGoSettings.goArch ||
+                oldGoTags != tinyGoSettings.goTags
         if (sdkOrTargetChanged || flagsChanged) {
             sendReloadLibrariesSignal(project)
         }
@@ -164,9 +173,11 @@ class TinyGoSettingsService(private val project: Project) :
     private fun callExtractor() {
         val extractionSettings = tinyGoSettings as TinyGoConfigurationWithTagUpdate
         TinyGoServiceScope.getScope(project).launch(ModalityState.current().asContextElement()) {
-            val output = project.service<TinyGoInfoExtractor>()
-                .extractTinyGoInfo(extractionSettings, CachedGoRootInvalidator(project))
-                ?: return@launch
+            val output =
+                project
+                    .service<TinyGoInfoExtractor>()
+                    .extractTinyGoInfo(extractionSettings, CachedGoRootInvalidator(project))
+                    ?: return@launch
             thisLogger().trace(output)
             extractionSettings.updateFromTinyGoInfo(output)
             withContext(Dispatchers.EDT) {
