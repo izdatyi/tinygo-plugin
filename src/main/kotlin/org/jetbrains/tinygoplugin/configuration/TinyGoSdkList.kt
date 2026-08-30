@@ -47,8 +47,12 @@ class TinyGoSdkList : PersistentStateComponent<TinyGoSdkListStorage> {
 
     fun addSdk(sdk: TinyGoSdk) =
         lockStorage {
-            val added = storedSdks.savedSdks.add(sdk.homeUrl, sdk.sdkVersion)
-            if (added) {
+            storedSdks.savedSdks.removeIf { it.sdkUrl == sdk.homeUrl }
+            storedSdks.savedSdks.add(TinyGoSdkStorage(sdk.homeUrl, sdk.sdkVersion))
+            val index = loadedSdks.indexOfFirst { it.homeUrl == sdk.homeUrl }
+            if (index >= 0) {
+                loadedSdks[index] = sdk
+            } else {
                 loadedSdks.add(sdk)
             }
         }
@@ -58,6 +62,16 @@ class TinyGoSdkList : PersistentStateComponent<TinyGoSdkListStorage> {
             val validUrls = validSdks.map { it.homeUrl }.toSet()
             storedSdks.savedSdks.removeIf { !validUrls.contains(it.sdkUrl) }
             loadedSdks.removeIf { !validUrls.contains(it.homeUrl) }
+            for (sdk in validSdks) {
+                storedSdks.savedSdks.removeIf { it.sdkUrl == sdk.homeUrl }
+                storedSdks.savedSdks.add(TinyGoSdkStorage(sdk.homeUrl, sdk.sdkVersion))
+                val index = loadedSdks.indexOfFirst { it.homeUrl == sdk.homeUrl }
+                if (index >= 0) {
+                    loadedSdks[index] = sdk
+                } else {
+                    loadedSdks.add(sdk)
+                }
+            }
         }
 
     private fun saveLoadedSdk() =

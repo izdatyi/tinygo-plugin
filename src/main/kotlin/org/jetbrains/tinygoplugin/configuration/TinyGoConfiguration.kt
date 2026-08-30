@@ -6,6 +6,7 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import org.jetbrains.tinygoplugin.sdk.TinyGoSdk
 import org.jetbrains.tinygoplugin.sdk.nullSdk
+import org.jetbrains.tinygoplugin.sdk.unknownVersion
 
 interface TinyGoConfiguration :
     UserConfiguration,
@@ -39,26 +40,18 @@ internal data class TinyGoConfigurationImpl(
     override var sdk: TinyGoSdk
         get() {
             val url = projectConfig.sdkUrl.ifEmpty { userConfig.sdk.homeUrl.ifEmpty { null } } ?: return nullSdk
-            val ver = projectConfig.sdkVersion.ifEmpty { userConfig.sdk.version }
-            return TinyGoSdk(url, ver.ifEmpty { null })
+            val knownVersion = service<TinyGoSdkList>().loadedSdks.firstOrNull { it.homeUrl == url }?.sdkVersion
+            val version = knownVersion?.takeIf { it != unknownVersion } ?: userConfig.sdk.sdkVersion
+            return TinyGoSdk(url, version)
         }
         set(value) {
             projectConfig.sdkUrl = value.homeUrl
-            projectConfig.sdkVersion = value.version
             userConfig.sdk = value
         }
 
     override var cachedGoRoot: GoSdk
-        get() {
-            val url = projectConfig.cachedGoRootUrl.ifEmpty { userConfig.cachedGoRoot.homeUrl.ifEmpty { null } }
-            if (url != null) {
-                val sdk = GoSdk.fromUrl(url)
-                if (sdk != GoSdk.NULL && sdk.srcDir != null) return sdk
-            }
-            return userConfig.cachedGoRoot
-        }
+        get() = userConfig.cachedGoRoot
         set(value) {
-            projectConfig.cachedGoRootUrl = value.homeUrl
             userConfig.cachedGoRoot = value
         }
 

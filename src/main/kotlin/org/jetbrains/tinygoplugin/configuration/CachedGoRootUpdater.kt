@@ -4,6 +4,7 @@ import com.goide.GoLibrariesUtil
 import com.goide.project.GoModuleSettings
 import com.goide.sdk.GoSdk
 import com.goide.sdk.GoSdkService
+import com.goide.util.GoUtil
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.module.Module
@@ -15,9 +16,7 @@ import com.intellij.openapi.roots.ModuleRootListener
 import com.intellij.util.application
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.util.messages.MessageBus
-import kotlinx.coroutines.launch
 import org.jetbrains.tinygoplugin.services.TinyGoLibraryLayoutService
-import org.jetbrains.tinygoplugin.services.TinyGoServiceScope
 import java.util.EventListener
 import java.util.concurrent.atomic.AtomicReference
 
@@ -27,15 +26,13 @@ internal class GoSdkChangeListener(
     private val lastGoSdkUrl = AtomicReference<String?>()
 
     override fun rootsChanged(event: ModuleRootEvent) {
-        TinyGoServiceScope.getScope(project).launch {
-            val currentGoSdkUrl = project.service<GoSdkService>().getSdk(null).homeUrl
-            val previousGoSdkUrl = lastGoSdkUrl.getAndSet(currentGoSdkUrl)
-            if (previousGoSdkUrl != currentGoSdkUrl && project.tinyGoConfiguration().enabled) {
-                logger<GoSdkChangeListener>().debug(
-                    "Go SDK changed from '$previousGoSdkUrl' to '$currentGoSdkUrl'; updating cached GOROOT",
-                )
-                sendReloadLibrariesSignal(project)
-            }
+        val currentGoSdkUrl = project.service<GoSdkService>().getSdk(null).homeUrl
+        val previousGoSdkUrl = lastGoSdkUrl.getAndSet(currentGoSdkUrl)
+        if (previousGoSdkUrl != null && previousGoSdkUrl != currentGoSdkUrl && project.tinyGoConfiguration().enabled) {
+            logger<GoSdkChangeListener>().debug(
+                "Go SDK changed from '$previousGoSdkUrl' to '$currentGoSdkUrl'; updating cached GOROOT",
+            )
+            sendReloadLibrariesSignal(project)
         }
     }
 }
@@ -80,6 +77,8 @@ class CachedGoRootInvalidator(
 internal fun updateExtLibrariesAndCleanCache(project: Project) {
     if (!project.isDisposed) {
         application.assertIsDispatchThread()
+        project.service<GoSdkService>().incModificationCount()
+        GoUtil.cleanResolveCache(project)
         GoLibrariesUtil.updateLibraries(project, RootsChangeRescanningInfo.TOTAL_RESCAN, { }, null)
     }
 }

@@ -33,7 +33,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.tinygoplugin.TinyGoBundle
 import org.jetbrains.tinygoplugin.configuration.TinyGoSdkList
-import java.io.File
 import java.io.IOException
 import java.util.function.Consumer
 
@@ -193,20 +192,14 @@ class TinyGoSdkChooserCombo(
             override fun getAllKnownSdks(): MutableList<TinyGoSdk> {
                 val loadedSdks = service<TinyGoSdkList>().loadedSdks.toList()
                 val downloadingSdks = service<TinyGoDownloadSdkService>().downloadingTinyGoSdks.toList()
-                val all = (loadedSdks + downloadingSdks).toMutableList()
-                return all
-                    .filter {
-                        val path = urlToPath(it.homeUrl)
-                        path != null && File(path).exists()
-                    }.toMutableList()
+                return (loadedSdks + downloadingSdks).toMutableList()
             }
 
             @RequiresBackgroundThread
-            override fun discoverSdks(): MutableList<TinyGoSdk> {
-                val valid = allKnownSdks.filter { it.refreshValidity() }
-                service<TinyGoSdkList>().retainOnly(valid)
-                return valid.toMutableList()
-            }
+            override fun discoverSdks(): MutableList<TinyGoSdk> =
+                allKnownSdks.onEach { sdk ->
+                    sdk.refreshValidity()
+                }
         },
         GoSdkActionsProvider {
             listOf(

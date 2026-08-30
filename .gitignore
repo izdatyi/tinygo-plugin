@@ -3,4 +3,4 @@
 .intellijPlatform
 build
 src/test/testData/configuration/target*.json
-
+AGENTS.md

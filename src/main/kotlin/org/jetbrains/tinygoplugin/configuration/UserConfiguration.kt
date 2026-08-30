@@ -6,12 +6,14 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.StoragePathMacros
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.util.xmlb.XmlSerializerUtil
-import org.jetbrains.tinygoplugin.sdk.TinyGoSdk
-import org.jetbrains.tinygoplugin.sdk.nullSdk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.jetbrains.tinygoplugin.sdk.TinyGoSdk
+import org.jetbrains.tinygoplugin.sdk.computeVersion
+import org.jetbrains.tinygoplugin.sdk.nullSdk
 import org.jetbrains.tinygoplugin.sdk.unknownVersion
 import org.jetbrains.tinygoplugin.services.TinyGoServiceScope
 
@@ -20,7 +22,9 @@ interface UserConfiguration {
     var cachedGoRoot: GoSdk
 }
 
-data class CachedGoRootStorage(var sdkUrl: String = "")
+data class CachedGoRootStorage(
+    var sdkUrl: String = "",
+)
 
 internal interface UserConfigurationStorage {
     var sdkStorage: TinyGoSdkStorage
@@ -28,33 +32,31 @@ internal interface UserConfigurationStorage {
 }
 
 internal data class UserConfigurationStorageImpl(
-    override var sdkStorage: TinyGoSdkStorage = TinyGoSdkStorage(
-        "",
-        unknownVersion
-    ),
-    override var cachedGoRootStorage: CachedGoRootStorage = CachedGoRootStorage()
-) :
-    UserConfigurationStorage
+    override var sdkStorage: TinyGoSdkStorage =
+        TinyGoSdkStorage(
+            "",
+            unknownVersion,
+        ),
+    override var cachedGoRootStorage: CachedGoRootStorage = CachedGoRootStorage(),
+) : UserConfigurationStorage
 
-internal fun TinyGoSdk.toStorage(): TinyGoSdkStorage {
-    return TinyGoSdkStorage(this.homeUrl, this.sdkVersion)
-}
+internal fun TinyGoSdk.toStorage(): TinyGoSdkStorage = TinyGoSdkStorage(this.homeUrl, this.sdkVersion)
 
 internal fun TinyGoSdkStorage.toImpl(): TinyGoSdk {
     val homeUrl = sdkUrl.ifEmpty { null }
     return TinyGoSdk(homeUrl, this.version)
 }
 
-internal fun GoSdk.toStorage(): CachedGoRootStorage {
-    return CachedGoRootStorage(this.homeUrl)
-}
+internal fun GoSdk.toStorage(): CachedGoRootStorage = CachedGoRootStorage(this.homeUrl)
 
 internal fun CachedGoRootStorage.toImpl(): GoSdk {
     val homeUrl = sdkUrl.ifEmpty { null }
     return GoSdk.fromUrl(homeUrl)
 }
 
-internal class UserConfigurationStorageWrapper : UserConfigurationStorage, UserConfiguration {
+internal class UserConfigurationStorageWrapper :
+    UserConfigurationStorage,
+    UserConfiguration {
     internal fun updateState() {
         tinyGoSdk = state.sdkStorage.toImpl()
         cachedGoRoot = state.cachedGoRootStorage.toImpl()
@@ -98,23 +100,24 @@ internal class UserConfigurationStorageWrapper : UserConfigurationStorage, UserC
 
     fun copy(): UserConfigurationStorageWrapper {
         val result = UserConfigurationStorageWrapper()
-        result.state = UserConfigurationStorageImpl(
-            sdkStorage = sdkStorage.copy(),
-            cachedGoRootStorage = cachedGoRootStorage.copy(),
-        )
+        result.state =
+            UserConfigurationStorageImpl(
+                sdkStorage = sdkStorage.copy(),
+                cachedGoRootStorage = cachedGoRootStorage.copy(),
+            )
         result.tinyGoSdk = tinyGoSdk
         result.tinyGoCachedGoRoot = tinyGoCachedGoRoot
         return result
     }
 
-    override fun hashCode(): Int {
-        return state.hashCode()
-    }
+    override fun hashCode(): Int = state.hashCode()
 }
+
 @State(name = "TinyGoPluginUserConfig", storages = [Storage(StoragePathMacros.WORKSPACE_FILE)])
 @Service(Service.Level.PROJECT)
-internal class UserConfigurationImpl(private val project: Project) :
-    PersistentStateComponent<UserConfigurationStorageImpl> {
+internal class UserConfigurationImpl(
+    private val project: Project,
+) : PersistentStateComponent<UserConfigurationStorageImpl> {
     var myState = UserConfigurationStorageWrapper()
 
     override fun getState(): UserConfigurationStorageImpl = myState.state
@@ -123,7 +126,18 @@ internal class UserConfigurationImpl(private val project: Project) :
         XmlSerializerUtil.copyBean(state, this.myState.state)
         this.myState.updateState()
         TinyGoServiceScope.getScope(project).launch(Dispatchers.IO) {
-            myState.sdk.refreshValidity()
+            val sdkListService = service<TinyGoSdkList>()
+            val allSdks = sdkListService.loadedSdks.toList()
+            for (sdk in allSdks) {
+                if (sdk.refreshValidity() && sdk.computeVersion(project)) {
+                    sdkListService.addSdk(sdk)
+                }
+            }
+            val currentSdk = myState.sdk
+            if (currentSdk.refreshValidity() && currentSdk.computeVersion(project)) {
+                myState.sdk = currentSdk
+                sdkListService.addSdk(currentSdk)
+            }
         }
     }
 }

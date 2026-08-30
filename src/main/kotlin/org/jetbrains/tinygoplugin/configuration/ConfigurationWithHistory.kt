@@ -33,16 +33,16 @@ class ConfigurationWithHistory(
     override var targetPlatform: String
         get() = settings.targetPlatform
         set(value) {
-            if (!predefinedTargets.contains(value) && !settings.userTargets.contains(value)) {
+            if (value.isNotEmpty() && !predefinedTargets.contains(value) && !settings.userTargets.contains(value)) {
                 settings.userTargets += value
             }
             settings.targetPlatform = value
         }
 
     override var userTargets: List<String>
-        get() = settings.userTargets + predefinedTargets
+        get() = settings.userTargets.filter { it.isNotBlank() } + predefinedTargets
         set(value) {
-            settings.userTargets = value
+            settings.userTargets = value.filter { it.isNotBlank() }
         }
 
     override fun deepCopy(): TinyGoConfiguration {
