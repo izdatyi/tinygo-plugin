@@ -68,7 +68,7 @@ class TinyGoLibraryProvider : AdditionalLibraryRootsProvider() {
 
     override fun getRootsToWatch(project: Project): Collection<VirtualFile> {
         val settings = project.tinyGoConfiguration()
-        if (!isTinyGoActive(project)) {
+        if (!settings.enabled) {
             thisLogger().debug("cached GOROOT not presented because TinyGo is disabled")
             return emptyList()
         }

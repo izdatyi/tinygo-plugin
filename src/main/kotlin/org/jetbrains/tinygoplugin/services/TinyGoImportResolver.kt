@@ -22,7 +22,7 @@ class TinyGoImportResolver : GoImportResolver {
         module: Module?,
         resolveState: ResolveState?,
     ): Collection<GoPackage>? {
-        if (!isTinyGoActive(project, module)) {
+        if (!project.tinyGoConfiguration().enabled) {
             return null
         }
         return innerResolve(importPath, project, module)
@@ -32,7 +32,7 @@ class TinyGoImportResolver : GoImportResolver {
         val element = reference.element
         val project = element.project
         val module = GoUtil.module(element)
-        if (!isTinyGoActive(project, module)) {
+        if (!project.tinyGoConfiguration().enabled) {
             return null
         }
         // extract import

@@ -1,12 +1,10 @@
 package org.jetbrains.tinygoplugin.configuration
 
 import com.goide.sdk.GoSdk
-import com.goide.util.GoUtil
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import org.jetbrains.tinygoplugin.sdk.TinyGoSdk
 import org.jetbrains.tinygoplugin.sdk.nullSdk
-import org.jetbrains.tinygoplugin.sdk.unknownVersion
 
 interface TinyGoConfiguration :
     UserConfiguration,
@@ -38,12 +36,7 @@ internal data class TinyGoConfigurationImpl(
     )
 
     override var sdk: TinyGoSdk
-        get() {
-            val url = projectConfig.sdkUrl.ifEmpty { userConfig.sdk.homeUrl.ifEmpty { null } } ?: return nullSdk
-            val knownVersion = service<TinyGoSdkList>().loadedSdks.firstOrNull { it.homeUrl == url }?.sdkVersion
-            val version = knownVersion?.takeIf { it != unknownVersion } ?: userConfig.sdk.sdkVersion
-            return TinyGoSdk(url, version)
-        }
+        get() = userConfig.sdk
         set(value) {
             projectConfig.sdkUrl = value.homeUrl
             userConfig.sdk = value
@@ -56,7 +49,6 @@ internal data class TinyGoConfigurationImpl(
         }
 
     override fun saveState(project: Project) {
-        GoUtil.cleanResolveCache(project)
         project.service<ProjectConfigurationImpl>().myState = projectConfig.copy()
         project.service<UserConfigurationImpl>().myState = userConfig.copy()
     }

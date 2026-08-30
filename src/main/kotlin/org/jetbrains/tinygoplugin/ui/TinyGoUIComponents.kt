@@ -218,32 +218,10 @@ private fun Row.targetChooser(
                     }
                 }
             }
-            val updateHistory = {
-                val currentText = childComponent.text.ifEmpty { wrapper.target.get() }
-                childComponent.history = wrapper.userTargets
-                if (currentText.isNotEmpty()) {
-                    childComponent.text = currentText
-                    val historyIndex = childComponent.history.indexOf(currentText)
-                    if (historyIndex >= 0) {
-                        childComponent.selectedIndex = historyIndex
-                    }
-                }
-            }
-            findHistoryConfig(wrapper.obj.tinyGoSettings)?.onTargetsUpdated = updateHistory
             sdk.component.addChangedListener {
-                updateHistory()
+                childComponent.history = wrapper.userTargets
             }
         }
-}
-
-private fun findHistoryConfig(
-    cfg: org.jetbrains.tinygoplugin.configuration.TinyGoConfiguration,
-): org.jetbrains.tinygoplugin.configuration.ConfigurationWithHistory? {
-    if (cfg is org.jetbrains.tinygoplugin.configuration.ConfigurationWithHistory) return cfg
-    if (cfg is org.jetbrains.tinygoplugin.services.TinyGoConfigurationWithTagUpdate) {
-        return findHistoryConfig(cfg.settings)
-    }
-    return null
 }
 
 private class UIPropertyAdapter<T>(

@@ -4,7 +4,6 @@ import com.goide.GoLibrariesUtil
 import com.goide.project.GoModuleSettings
 import com.goide.sdk.GoSdk
 import com.goide.sdk.GoSdkService
-import com.goide.util.GoUtil
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.module.Module
@@ -77,8 +76,6 @@ class CachedGoRootInvalidator(
 internal fun updateExtLibrariesAndCleanCache(project: Project) {
     if (!project.isDisposed) {
         application.assertIsDispatchThread()
-        project.service<GoSdkService>().incModificationCount()
-        GoUtil.cleanResolveCache(project)
         GoLibrariesUtil.updateLibraries(project, RootsChangeRescanningInfo.TOTAL_RESCAN, { }, null)
     }
 }

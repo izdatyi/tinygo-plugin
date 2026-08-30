@@ -47,7 +47,7 @@ class TinyGoImportsFilter : GoImportsFilter {
         project: Project,
         import: String,
     ): Boolean {
-        if (!isTinyGoActive(project)) return false
+        if (!project.tinyGoConfiguration().enabled) return false
         val unsupportedPackages = project.service<UnsupportedPackageProvider>()
         return unsupportedPackages.unsupportedLibraries().contains(import)
     }

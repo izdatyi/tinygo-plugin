@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [0.6.0.2]
+
+### Fixed
+
+- Fix Go module flags propagation in GoLand 2026.2.
+- Clean resolve cache and redundant UI-thread inspection removed to eliminate editor freezes.
+- Support deterministic cached GOROOT updating across SDK versions.
+
 ## [0.6.0.1]
 
 ### Added

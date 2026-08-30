@@ -1,11 +1,9 @@
 package org.jetbrains.tinygoplugin.configuration
 
-import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.jetbrains.tinygoplugin.sdk.TinyGoSdk
 import org.jetbrains.tinygoplugin.services.TinyGoServiceScope
 import org.jetbrains.tinygoplugin.services.tinyGoTargets
@@ -55,16 +53,11 @@ class ConfigurationWithHistory(
     @Volatile
     var predefinedTargets: Set<String> = emptySet()
 
-    var onTargetsUpdated: (() -> Unit)? = null
-
     private fun updatePredefinedTargets() {
         TinyGoServiceScope.getScope().launch(Dispatchers.IO) {
             val isValid = settings.sdk.refreshValidity()
             val sdkPath = if (isValid) readAction { settings.sdk.sdkRoot?.toNioPath() } else null
             predefinedTargets = if (sdkPath == null) emptySet() else tinyGoTargets(sdkPath)
-            withContext(Dispatchers.EDT) {
-                onTargetsUpdated?.invoke()
-            }
         }
     }
 }

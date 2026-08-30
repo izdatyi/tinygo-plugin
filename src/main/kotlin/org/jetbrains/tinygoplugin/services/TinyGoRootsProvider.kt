@@ -32,7 +32,7 @@ class TinyGoRootsProvider : GoRootsProvider {
         module: Module?,
         file: VirtualFile?,
     ): MutableCollection<VirtualFile>? {
-        if (file == null || module == null || !isTinyGoActive(project, module)) {
+        if (file == null || module == null || !project.tinyGoConfiguration().enabled) {
             return null
         }
         val cachedGoRoot = project.tinyGoConfiguration().cachedGoRoot

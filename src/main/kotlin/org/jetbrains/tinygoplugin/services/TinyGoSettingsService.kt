@@ -1,7 +1,6 @@
 package org.jetbrains.tinygoplugin.services
 
 import com.goide.project.GoModuleSettings
-import com.goide.sdk.GoSdk
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.asContextElement
@@ -21,7 +20,6 @@ import org.jetbrains.tinygoplugin.configuration.Scheduler
 import org.jetbrains.tinygoplugin.configuration.TinyGoConfiguration
 import org.jetbrains.tinygoplugin.configuration.sendReloadLibrariesSignal
 import org.jetbrains.tinygoplugin.configuration.tinyGoConfiguration
-import org.jetbrains.tinygoplugin.configuration.updateExtLibrariesAndCleanCache
 import org.jetbrains.tinygoplugin.sdk.TinyGoDownloadingSdk
 import org.jetbrains.tinygoplugin.sdk.TinyGoSdk
 import org.jetbrains.tinygoplugin.ui.ConfigurationProvider
@@ -86,25 +84,26 @@ class TinyGoConfigurationWithTagUpdate(
 
     private fun goSettings(project: Project): GoModuleSettings? =
         ModuleManager.getInstance(project).modules.firstNotNullOfOrNull {
-            it.getService(GoModuleSettings::class.java)
+            GoModuleSettings.getInstance(it)
         }
 
     override fun modified(project: Project): Boolean {
         val moduleSettings = goSettings(project)
         if (moduleSettings != null && settings.enabled) {
             val buildSettings = moduleSettings.buildTargetSettings
-            val osMatch =
-                settings.goOS.isNotEmpty() &&
-                    settings.goOS != "default" &&
-                    buildSettings.os == settings.goOS
-            val archMatch =
-                settings.goArch.isNotEmpty() &&
-                    settings.goArch != "default" &&
-                    buildSettings.arch == settings.goArch
-            val tagsMatch =
-                settings.goTags.isNotEmpty() &&
-                    buildSettings.customFlags.joinToString(" ") == settings.goTags
-            if (!osMatch || !archMatch || !tagsMatch) {
+            val expectedTags =
+                settings.goTags
+                    .split(' ')
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ")
+            val currentTags =
+                buildSettings.customFlags
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ")
+            if (settings.goArch != buildSettings.arch ||
+                settings.goOS != buildSettings.os ||
+                expectedTags != currentTags
+            ) {
                 return true
             }
         }
@@ -139,14 +138,13 @@ class TinyGoSettingsService(
             tinyGoSettings.goOS = ""
             tinyGoSettings.goArch = ""
             tinyGoSettings.goTags = ""
-            tinyGoSettings.cachedGoRoot = GoSdk.NULL
+            tinyGoSettings.cachedGoRoot = com.goide.sdk.GoSdk.NULL
             resetGoFlags(project)
         } else {
             propagateGoFlags()
             updateTinyGoRunConfigurations()
         }
         tinyGoSettings.saveState(project)
-        updateExtLibrariesAndCleanCache(project)
         val sdkOrTargetChanged =
             oldSdk != tinyGoSettings.sdk ||
                 oldTarget != tinyGoSettings.targetPlatform
